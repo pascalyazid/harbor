@@ -605,7 +605,7 @@ We aim to respond to issues and pull requests promptly. Be kind, be specific, an
 Harbor stands on the shoulders of a generous open ecosystem and the people who build it.
 
 - The **Stremio addon protocol** and the **Stremio** team, for an open, well designed standard worth building on.
-- The **[Stremio-addons.net](https://stremio-addons.net) Team** and Sleeyax, for providing an excellent service (please consider supporting them).
+- The **[Stremio-addons.net](https://stremio-addons.net) Team** for providing an excellent service (please consider supporting them).
 - [@stass_motion](https://pro.fiverr.com/freelancers/stass_motion) for the lottie animations, he is fantastic consider supporting him.
 - **Cinemeta** and the wider **addon community**, whose work makes the experience possible out of the box.
 - **TMDB**, **Trakt**, **OMDB**, **Fanart.tv**, **RPDB**, **Kitsu**, and **AniZip** for the metadata that brings catalogs to life.
@@ -643,7 +643,7 @@ Thank you to everyone, named and unnamed, whose open work Harbor builds upon.
 [rust]: https://www.rust-lang.org/
 
 <!-- badges -->
-[badge-version]: https://img.shields.io/badge/version-0.8.6-D9A441?style=for-the-badge&labelColor=1a1a1a
+[badge-version]: https://img.shields.io/badge/version-0.8.8-D9A441?style=for-the-badge&labelColor=1a1a1a
 [badge-license]: https://img.shields.io/badge/license-MIT-D9A441?style=for-the-badge&labelColor=1a1a1a
 [badge-tauri]: https://img.shields.io/badge/Tauri-2-24C8DB?style=for-the-badge&logo=tauri&logoColor=white&labelColor=1a1a1a
 [badge-react]: https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white&labelColor=1a1a1a
