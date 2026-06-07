@@ -18,6 +18,7 @@ struct EngineState {
     port: Option<u16>,
     ready: bool,
     last_error: Option<String>,
+    server: Option<tokio::task::JoinHandle<()>>,
 }
 
 fn engine() -> &'static Mutex<EngineState> {
@@ -28,6 +29,7 @@ fn engine() -> &'static Mutex<EngineState> {
             port: None,
             ready: false,
             last_error: None,
+            server: None,
         })
     })
 }
@@ -100,16 +102,20 @@ async fn init(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
     let router = stream_route::router(session.clone());
-    tokio::spawn(async move {
+    let server = tokio::spawn(async move {
         if let Err(e) = axum::serve(listener, router).await {
             eprintln!("[torrent-engine] server error: {e}");
         }
     });
     let mut st = engine().lock().unwrap();
+    if let Some(old) = st.server.take() {
+        old.abort();
+    }
     st.session = Some(session);
     st.port = Some(port);
     st.ready = true;
     st.last_error = None;
+    st.server = Some(server);
     eprintln!("[torrent-engine] ready on 127.0.0.1:{port}");
     Ok(())
 }
@@ -136,6 +142,9 @@ pub fn ensure_started_on_setup(app: &AppHandle) {
 
 pub fn stop() {
     let mut st = engine().lock().unwrap();
+    if let Some(server) = st.server.take() {
+        server.abort();
+    }
     st.session = None;
     st.port = None;
     st.ready = false;
@@ -281,6 +290,13 @@ pub async fn torrent_engine_remove(info_hash: String, delete_files: bool) -> Res
         .await
         .map_err(|e| format!("{e:#}"))?;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn torrent_engine_restart(app: AppHandle) -> Result<EngineStatusDto, String> {
+    stop();
+    init(app).await?;
+    Ok(torrent_engine_status())
 }
 
 #[tauri::command]

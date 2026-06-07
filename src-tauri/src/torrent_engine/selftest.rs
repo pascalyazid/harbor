@@ -86,18 +86,25 @@ pub async fn run(app: AppHandle) -> SelfTestResult {
         trackers: Some(trackers()),
         ..Default::default()
     };
-    let handle = match session
-        .add_torrent(AddTorrent::from_url(MAGNET), Some(opts))
-        .await
-        .map(|r| r.into_handle())
-    {
-        Ok(Some(h)) => h,
-        Ok(None) => {
-            steps.push(step("metadata", false, "list-only response"));
+    let added = timeout(
+        Duration::from_secs(40),
+        session.add_torrent(AddTorrent::from_url(MAGNET), Some(opts)),
+    )
+    .await;
+    let handle = match added {
+        Ok(Ok(r)) => match r.into_handle() {
+            Some(h) => h,
+            None => {
+                steps.push(step("metadata", false, "list-only response"));
+                return finish(steps);
+            }
+        },
+        Ok(Err(e)) => {
+            steps.push(step("metadata", false, format!("{e:#}")));
             return finish(steps);
         }
-        Err(e) => {
-            steps.push(step("metadata", false, format!("{e:#}")));
+        Err(_) => {
+            steps.push(step("metadata", false, "add timed out after 40s"));
             return finish(steps);
         }
     };

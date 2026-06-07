@@ -102,12 +102,22 @@ export async function torrentEngineSelfTest(): Promise<SelfTestResult | null> {
   }
 }
 
+export async function torrentEngineRestart(): Promise<EngineStatus | null> {
+  if (!isTauri) return null;
+  try {
+    return await invoke<EngineStatus>("torrent_engine_restart");
+  } catch (e) {
+    console.warn("[engine] restart failed", e);
+    return null;
+  }
+}
+
 export function isLocalEngineEnabled(): boolean {
   try {
     const raw = localStorage.getItem("harbor.settings");
-    if (!raw) return false;
-    return (JSON.parse(raw) as { localEngine?: boolean }).localEngine === true;
+    if (!raw) return true;
+    return (JSON.parse(raw) as { localEngine?: boolean }).localEngine !== false;
   } catch {
-    return false;
+    return true;
   }
 }

@@ -379,6 +379,7 @@ pub fn run() {
             torrent_engine::torrent_engine_stats,
             torrent_engine::torrent_engine_remove,
             torrent_engine::torrent_engine_selftest,
+            torrent_engine::torrent_engine_restart,
             transcode::cast_ffmpeg_present,
             streams::streams_run_pipeline,
             streams::streams_parse,

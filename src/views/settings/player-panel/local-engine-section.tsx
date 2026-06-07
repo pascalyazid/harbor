@@ -1,6 +1,7 @@
-import { Check, Loader2, Play, X } from "lucide-react";
+import { Check, Loader2, Play, RotateCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
+  torrentEngineRestart,
   torrentEngineSelfTest as engineSelfTest,
   torrentEngineStatus as engineStatus,
   type EngineStatus,
@@ -25,6 +26,7 @@ function engineState(status: EngineStatus | null): EngineState {
 export function LocalEngineSection() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [running, setRunning] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const [result, setResult] = useState<SelfTestResult | null>(null);
 
   useEffect(() => {
@@ -43,10 +45,31 @@ export function LocalEngineSection() {
 
   const runTest = async () => {
     setRunning(true);
+    setResult(null);
     try {
-      setResult(await engineSelfTest());
+      const r = await Promise.race([
+        engineSelfTest(),
+        new Promise<SelfTestResult>((res) => window.setTimeout(() => res(null), 75000)),
+      ]);
+      setResult(
+        r ?? {
+          pass: false,
+          steps: [{ label: "self-test", ok: false, detail: "timed out, hit Restart engine" }],
+        },
+      );
     } finally {
       setRunning(false);
+    }
+  };
+
+  const restart = async () => {
+    setRestarting(true);
+    setResult(null);
+    try {
+      const s = await torrentEngineRestart();
+      if (s) setStatus(s);
+    } finally {
+      setRestarting(false);
     }
   };
 
@@ -95,6 +118,19 @@ export function LocalEngineSection() {
             <Play size={14} strokeWidth={2.4} />
           )}
           {running ? "Running self-test" : "Run self-test"}
+        </button>
+        <button
+          type="button"
+          onClick={() => void restart()}
+          disabled={running || restarting}
+          className="flex h-10 items-center gap-2 rounded-lg border border-edge-soft px-4 text-[13px] font-semibold text-ink-muted transition-colors hover:border-edge hover:text-ink disabled:opacity-60"
+        >
+          {restarting ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <RotateCw size={14} strokeWidth={2.4} />
+          )}
+          {restarting ? "Restarting" : "Restart engine"}
         </button>
       </div>
 

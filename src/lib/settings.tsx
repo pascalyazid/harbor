@@ -269,7 +269,7 @@ const DEFAULT: Settings = {
   playerMpvEmbed: true,
   stremioServerTranscode: false,
   directTorrentStream: true,
-  localEngine: false,
+  localEngine: true,
   castAlwaysTranscode: true,
   playerAnime4kShaders: [],
   playerAnime4kMode: "A",

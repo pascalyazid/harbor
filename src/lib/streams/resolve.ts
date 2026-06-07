@@ -2,7 +2,7 @@ import { safeFetch as fetch } from "@/lib/safe-fetch";
 import { dwarn } from "@/lib/debug";
 import { magnetFromHash, type DebridResult, type DebridStore, type DirectLink } from "@/lib/debrid/types";
 import { probeStremioServer } from "@/lib/stremio-server";
-import { torrentEngineAdd, torrentEngineSelect } from "@/lib/torrent/local-engine";
+import { isLocalEngineEnabled, torrentEngineAdd, torrentEngineSelect } from "@/lib/torrent/local-engine";
 import {
   buildTorrentStreamUrl,
   createAndListFiles,
@@ -246,8 +246,10 @@ async function tryLocalEngine(stream: ParsedStream | ScoredStream): Promise<Dire
 }
 
 async function tryTorrentEngine(stream: ParsedStream | ScoredStream): Promise<DirectLink | null> {
-  const local = await tryLocalEngine(stream);
-  if (local) return local;
+  if (isLocalEngineEnabled()) {
+    const local = await tryLocalEngine(stream);
+    if (local) return local;
+  }
   return tryStremioServer(stream);
 }
 
