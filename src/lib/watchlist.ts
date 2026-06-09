@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { addToWatchlist as traktAdd, removeFromWatchlist as traktRemove } from "@/lib/trakt/watchlist";
 import { stremioIdToTraktTarget } from "@/lib/trakt/ids";
+import { addToWatchlist as simklAdd, removeFromWatchlist as simklRemove } from "@/lib/simkl/watchlist";
+import { stremioIdToSimklTarget } from "@/lib/simkl/ids";
+import { isAuthenticated as simklConnected } from "@/lib/simkl/session";
 import { setItemWithRecovery, freeStorageSpace } from "@/lib/storage-recovery";
 
 const KEY = "harbor.watchlist.v1";
@@ -157,6 +160,7 @@ export function toggleWatchlist(input: string | WatchlistInput): boolean {
   else map.set(id, toEntry(input));
   write(map);
   void syncWithTrakt(id, !has);
+  void syncWithSimkl(id, !has);
   return !has;
 }
 
@@ -166,6 +170,18 @@ async function syncWithTrakt(metaId: string, added: boolean): Promise<void> {
     if (!r.ok) return;
     if (added) await traktAdd(r.target);
     else await traktRemove(r.target);
+  } catch {
+    /* swallow */
+  }
+}
+
+async function syncWithSimkl(metaId: string, added: boolean): Promise<void> {
+  try {
+    if (!simklConnected()) return;
+    const r = stremioIdToSimklTarget(metaId);
+    if (!r.ok) return;
+    if (added) await simklAdd(r.target);
+    else await simklRemove(r.target);
   } catch {
     /* swallow */
   }

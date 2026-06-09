@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { peekPickerCache, subscribePickerCache } from "@/lib/picker-cache";
 import { useSettings } from "@/lib/settings";
 import type { ScoredStream } from "@/lib/streams/types";
+import { addonInstanceKey, buildAddonOptions } from "@/views/play-picker/picker-utils";
 import type { Meta } from "@/lib/cinemeta";
 import type { PlayEpisode } from "@/lib/view";
 
@@ -218,17 +219,7 @@ export function StreamSwitcher({
       setQualityFilter("all");
     }
   }, [qualityOptions, qualityFilter]);
-  const addonOptions = useMemo(() => {
-    const seen = new Map<string, { name: string; count: number }>();
-    for (const s of allStreams) {
-      const existing = seen.get(s.addonId);
-      if (existing) existing.count += 1;
-      else seen.set(s.addonId, { name: s.addonName ?? s.addonId, count: 1 });
-    }
-    return [...seen.entries()]
-      .map(([id, v]) => ({ id, name: v.name, count: v.count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [allStreams]);
+  const addonOptions = useMemo(() => buildAddonOptions(allStreams), [allStreams]);
   useEffect(() => {
     if (addonFilter !== "all" && !addonOptions.some((o) => o.id === addonFilter)) {
       setAddonFilter("all");
@@ -237,7 +228,7 @@ export function StreamSwitcher({
   const addonFilteredList = useMemo(() => {
     let list: ScoredStream[];
     if (addonFilter !== "all") {
-      list = baseList.filter((s) => s.addonId === addonFilter);
+      list = baseList.filter((s) => addonInstanceKey(s) === addonFilter);
     } else {
       list = baseList.filter((s) => !isHiddenAddon(s.addonId, s.addonName));
     }

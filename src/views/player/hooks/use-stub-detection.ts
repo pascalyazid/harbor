@@ -5,9 +5,9 @@ import type { PlayerSrc } from "@/lib/view";
 export function useStubDetection(params: {
   src: PlayerSrc;
   snap: PlayerSnapshot;
-  closePlayer: () => void;
+  onStub: () => void;
 }) {
-  const { src, snap, closePlayer } = params;
+  const { src, snap, onStub } = params;
   const stubCheckedRef = useRef<string | null>(null);
   useEffect(() => {
     if (stubCheckedRef.current === src.url) return;
@@ -29,7 +29,7 @@ export function useStubDetection(params: {
         if (!flag) return;
         const sf = {
           infoHash: src.streamRef?.infoHash ?? undefined,
-          fileIdx: src.streamRef?.fileIdx ?? undefined,
+          fileIdx: undefined,
           url: src.url,
           addonId: src.streamRef?.addonId ?? "",
           title: src.streamRef?.title ?? src.title,
@@ -37,8 +37,8 @@ export function useStubDetection(params: {
         const reason = `stub_${Math.round(snap.durationSec)}s`;
         markStreamDead(sf, reason, STUB_TTL_MS);
         recordStubEvent(reason);
-        console.warn(`[player] stub detected (${Math.round(snap.durationSec)}s); skipping back to picker`);
-        closePlayer();
+        console.warn(`[player] stub detected (${Math.round(snap.durationSec)}s); returning to picker`);
+        onStub();
       },
     );
   }, [snap.durationSec, snap.status, src.url, src.meta, src.streamRef, src.title]);

@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { FormatBadge } from "@/components/format-badge";
 import { useDebridClients } from "@/lib/debrid/registry";
 import type { ScoredStream, Tier } from "@/lib/streams/types";
-import { formatSize, streamLeadBadge, streamLeadLabel } from "./picker-utils";
+import { formatSize, hasUncachedMarker, streamLeadBadge, streamLeadLabel } from "./picker-utils";
 
 export function TierStrip({
   tiers,
@@ -36,7 +36,8 @@ export function TierStrip({
           const isActive = selected === t;
           const cachedHere = debrids.some((d) => stream.cached[d.slug]);
           const trulyInstantHere =
-            stream.url != null || debrids.some((d) => stream.inLibrary[d.slug]);
+            (stream.url != null && !stream.infoHash && !hasUncachedMarker(stream)) ||
+            debrids.some((d) => stream.inLibrary[d.slug]);
           const sizeStr = stream.size != null ? formatSize(stream.size) : null;
           const badgeKind = streamLeadBadge(stream, t);
           const accent = streamLeadLabel(stream, t);

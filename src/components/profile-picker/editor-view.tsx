@@ -1,6 +1,7 @@
 import { Check, ChevronLeft, Loader2, Lock, Link2, ShieldCheck, Trash2, Unlock, User as UserIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import traktLogo from "@/assets/trakt.svg";
+import simklLogo from "@/assets/simkl.png";
 import { AddonsIcon } from "@/components/icons/addons-icon";
 import { AnimeIcon } from "@/components/icons/anime-icon";
 import { CalendarIcon } from "@/components/icons/calendar-icon";
@@ -29,6 +30,8 @@ import { fetchTraktAvatar } from "@/lib/trakt/profile";
 import { useTrakt } from "@/lib/trakt/provider";
 import { fetchAnilistAvatar } from "@/lib/anilist/profile";
 import { useAnilist } from "@/lib/anilist/provider";
+import { fetchSimklAvatar } from "@/lib/simkl/profile";
+import { useSimkl } from "@/lib/simkl/provider";
 import { useSettings } from "@/lib/settings";
 import { AvatarRing } from "@/views/settings/account/avatar-ring";
 import { resizeAvatar } from "@/views/settings/account/avatar-utils";
@@ -56,11 +59,14 @@ export function EditorView({
     useProfiles();
   const { isConnected: traktConnected } = useTrakt();
   const { isConnected: anilistConnected, avatar: anilistAvatar } = useAnilist();
+  const { isConnected: simklConnected } = useSimkl();
   const { update } = useSettings();
   const [loadingTraktAvatar, setLoadingTraktAvatar] = useState(false);
   const [traktAvatarError, setTraktAvatarError] = useState<string | null>(null);
   const [loadingAnilistAvatar, setLoadingAnilistAvatar] = useState(false);
   const [anilistAvatarError, setAnilistAvatarError] = useState<string | null>(null);
+  const [loadingSimklAvatar, setLoadingSimklAvatar] = useState(false);
+  const [simklAvatarError, setSimklAvatarError] = useState<string | null>(null);
   const editing = mode.kind === "edit" ? mode.profile : null;
   const primary = profiles.find((p) => p.isPrimary);
   const activeIsPrimary = !!activeProfile?.isPrimary;
@@ -69,7 +75,7 @@ export function EditorView({
   const [name, setName] = useState(editing?.name ?? "");
   const [avatar, setAvatar] = useState<string | null>(editing?.avatar ?? null);
   const [avatarSource, setAvatarSource] = useState<
-    "trakt" | "anilist" | "upload" | "removed" | null
+    "trakt" | "anilist" | "simkl" | "upload" | "removed" | null
   >(null);
   const [color, setColor] = useState<ProfileColor>(
     editing?.color ?? nextProfileColor(profiles),
@@ -144,6 +150,26 @@ export function EditorView({
     }
   };
 
+  const onUseSimklAvatar = async () => {
+    setLoadingSimklAvatar(true);
+    setSimklAvatarError(null);
+    try {
+      const url = await fetchSimklAvatar();
+      if (!url) {
+        setSimklAvatarError("Couldn't find a Simkl avatar on your account.");
+        setTimeout(() => setSimklAvatarError(null), 4000);
+        return;
+      }
+      setAvatar(url);
+      setAvatarSource("simkl");
+    } catch {
+      setSimklAvatarError("Couldn't reach Simkl.");
+      setTimeout(() => setSimklAvatarError(null), 4000);
+    } finally {
+      setLoadingSimklAvatar(false);
+    }
+  };
+
   const submit = async () => {
     if (!canSave) return;
     if (editing) {
@@ -166,6 +192,7 @@ export function EditorView({
       update({
         useAnilistAvatar: avatarSource === "anilist",
         useTraktAvatar: avatarSource === "trakt",
+        useSimklAvatar: avatarSource === "simkl",
       });
     }
     onDone();
@@ -340,6 +367,21 @@ export function EditorView({
                   Use AniList avatar
                 </button>
               )}
+              {simklConnected && (
+                <button
+                  type="button"
+                  onClick={() => void onUseSimklAvatar()}
+                  disabled={loadingSimklAvatar}
+                  className="flex h-8 items-center gap-1.5 rounded-lg border border-edge-soft px-2.5 text-[12px] font-medium text-ink-muted transition-colors hover:border-edge hover:text-ink disabled:opacity-60"
+                >
+                  {loadingSimklAvatar ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <img src={simklLogo} alt="" className="h-3 w-3 object-contain" />
+                  )}
+                  Use Simkl avatar
+                </button>
+              )}
               {avatar && (
                 <button
                   type="button"
@@ -358,6 +400,9 @@ export function EditorView({
             )}
             {anilistAvatarError && (
               <p className="text-[11.5px] text-amber-200/85">{anilistAvatarError}</p>
+            )}
+            {simklAvatarError && (
+              <p className="text-[11.5px] text-amber-200/85">{simklAvatarError}</p>
             )}
           </div>
         </div>

@@ -41,18 +41,24 @@ export function streamFingerprint(s: StreamLike): string | null {
 }
 
 export function isStreamDead(s: StreamLike): boolean {
+  const keys: string[] = [];
   const id = streamFingerprint(s);
-  if (!id) return false;
+  if (id) keys.push(id);
+  if (s.infoHash) keys.push(`h:${s.infoHash.toLowerCase()}:`);
+  if (keys.length === 0) return false;
   const m = load();
-  const e = m[id];
-  if (!e) return false;
-  const ttl = e.ttl ?? DEFAULT_TTL_MS;
-  if (Date.now() - e.ts > ttl) {
-    delete m[id];
-    save(m);
-    return false;
+  for (const k of keys) {
+    const e = m[k];
+    if (!e) continue;
+    const ttl = e.ttl ?? DEFAULT_TTL_MS;
+    if (Date.now() - e.ts > ttl) {
+      delete m[k];
+      save(m);
+      continue;
+    }
+    return true;
   }
-  return true;
+  return false;
 }
 
 export function markStreamDead(

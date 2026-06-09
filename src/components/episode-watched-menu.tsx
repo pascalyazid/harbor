@@ -2,6 +2,9 @@ import { Check, Eye, EyeOff } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { setManualWatched, setManualWatchedUpTo } from "@/lib/manual-watched";
+import { markEpisodesWatched, unmarkEpisodeWatched } from "@/lib/simkl/history";
+import { stremioIdToSimklTarget } from "@/lib/simkl/ids";
+import { useSimkl } from "@/lib/simkl/provider";
 
 export type WatchedMenuTarget = {
   x: number;
@@ -20,6 +23,8 @@ export function EpisodeWatchedMenu({
   target: WatchedMenuTarget;
   onClose: () => void;
 }) {
+  const { isConnected: simklConnected } = useSimkl();
+
   useEffect(() => {
     const onDown = () => onClose();
     const onKey = (e: KeyboardEvent) => {
@@ -34,6 +39,12 @@ export function EpisodeWatchedMenu({
       window.removeEventListener("scroll", onClose, true);
     };
   }, [onClose]);
+
+  const showIds = (() => {
+    if (!simklConnected) return null;
+    const r = stremioIdToSimklTarget(metaId, { season: target.season, episode: target.episode });
+    return r.ok && r.target.kind === "episode" ? r.target.show.ids : null;
+  })();
 
   const left = Math.min(target.x, window.innerWidth - 232);
   const top = Math.min(target.y, window.innerHeight - 128);
@@ -51,6 +62,7 @@ export function EpisodeWatchedMenu({
           label="Mark as unwatched"
           onClick={() => {
             setManualWatched(metaId, target.season, target.episode, false);
+            if (showIds) void unmarkEpisodeWatched(showIds, target.season, target.episode);
             onClose();
           }}
         />
@@ -61,6 +73,7 @@ export function EpisodeWatchedMenu({
             label="Mark as watched"
             onClick={() => {
               setManualWatched(metaId, target.season, target.episode, true);
+              if (showIds) void markEpisodesWatched(showIds, target.season, [target.episode]);
               onClose();
             }}
           />
@@ -69,6 +82,10 @@ export function EpisodeWatchedMenu({
             label="Mark watched up to here"
             onClick={() => {
               setManualWatchedUpTo(metaId, target.season, target.episode, true);
+              if (showIds) {
+                const eps = Array.from({ length: target.episode }, (_, i) => i + 1);
+                void markEpisodesWatched(showIds, target.season, eps);
+              }
               onClose();
             }}
           />

@@ -7,7 +7,7 @@ import { useSettings } from "@/lib/settings";
 import { useView } from "@/lib/view";
 import { useInWatchlist } from "@/lib/watchlist";
 
-export type Tab = "watchlist" | "history" | "local" | "trakt" | "anilist";
+export type Tab = "watchlist" | "history" | "local" | "trakt" | "anilist" | "simkl";
 
 export type TypeKey = "all" | "movie" | "series";
 
@@ -202,9 +202,6 @@ export async function hydrateLibraryMeta(
     }
   })();
   const p = (async () => {
-    if (id.startsWith("tt")) {
-      return (await resolveMeta(authKey, type, id).catch(() => null)) ?? null;
-    }
     if (id.startsWith("tmdb:") && tmdbKey) {
       const isTv = id.startsWith("tmdb:tv:") || id.startsWith("tmdb:series:");
       const tmdbType = isTv ? "tv" : "movie";
@@ -213,23 +210,24 @@ export async function hydrateLibraryMeta(
         const r = await fetch(
           `https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${tmdbKey}`,
         );
-        if (!r.ok) return null;
-        const j = await r.json();
-        return {
-          id,
-          type,
-          name: j.title || j.name || "",
-          poster: j.poster_path ? `https://image.tmdb.org/t/p/w342${j.poster_path}` : undefined,
-          background: j.backdrop_path
-            ? `https://image.tmdb.org/t/p/w780${j.backdrop_path}`
-            : undefined,
-          releaseInfo: (j.release_date || j.first_air_date)?.slice(0, 4),
-        } as Meta;
+        if (r.ok) {
+          const j = await r.json();
+          return {
+            id,
+            type,
+            name: j.title || j.name || "",
+            poster: j.poster_path ? `https://image.tmdb.org/t/p/w342${j.poster_path}` : undefined,
+            background: j.backdrop_path
+              ? `https://image.tmdb.org/t/p/w780${j.backdrop_path}`
+              : undefined,
+            releaseInfo: (j.release_date || j.first_air_date)?.slice(0, 4),
+          } as Meta;
+        }
       } catch {
-        return null;
+        /* fall through to addon resolve */
       }
     }
-    return null;
+    return (await resolveMeta(authKey, type, id).catch(() => null)) ?? null;
   })();
   metaHydrateCache.set(cacheKey, p);
   return p;
@@ -262,9 +260,11 @@ export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () =>
   const inList = useInWatchlist(meta.id);
   const cardRef = useRef<HTMLDivElement>(null);
   const [hydrated, setHydrated] = useState<Meta | null>(null);
+  const [posterFailed, setPosterFailed] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  useEffect(() => setPosterFailed(false), [meta.id]);
   useEffect(() => {
-    if (meta.poster && meta.name) {
+    if (meta.poster && meta.name && !posterFailed) {
       setHydrated(null);
       return;
     }
@@ -293,7 +293,7 @@ export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () =>
       cancelled = true;
       io.disconnect();
     };
-  }, [meta.id, meta.type, meta.poster, meta.name, settings.tmdbKey]);
+  }, [meta.id, meta.type, meta.poster, meta.name, settings.tmdbKey, posterFailed]);
   const display: Meta = hydrated ? { ...meta, ...hydrated, id: meta.id, type: meta.type } : meta;
   const open = () => openMeta(display);
   return (
@@ -314,7 +314,12 @@ export function WatchlistCard({ meta, onRemove }: { meta: Meta; onRemove?: () =>
         }}
         className="relative aspect-[2/3] cursor-pointer overflow-hidden rounded-xl bg-elevated shadow-[0_2px_8px_-2px_rgba(0,0,0,0.4)] outline-none ring-offset-2 ring-offset-canvas transition-transform duration-200 focus-visible:ring-2 focus-visible:ring-ink group-hover:scale-[1.02]"
       >
-        <Poster src={display.poster} seed={display.id} className="h-full w-full" />
+        <Poster
+          src={display.poster}
+          seed={display.id}
+          className="h-full w-full"
+          onError={() => setPosterFailed(true)}
+        />
         {inList && (
           <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-ink/80 text-canvas backdrop-blur-sm">
             <Bookmark size={12} strokeWidth={2.6} fill="currentColor" />
@@ -372,8 +377,13 @@ export function EmptyWatchlist({ connected }: { connected: boolean }) {
 }
 
 export function Grid({ children }: { children: React.ReactNode }) {
+  const { settings } = useSettings();
+  const base = Math.round(150 * settings.posterScale);
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
+    <div
+      className="grid gap-4"
+      style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${base}px, 1fr))` }}
+    >
       {children}
     </div>
   );

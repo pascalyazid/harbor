@@ -62,6 +62,11 @@ export {
 } from "./tmdb/tmdb-details";
 
 export {
+  tmdbCollection,
+  type TmdbCollection,
+} from "./tmdb/tmdb-collection";
+
+export {
   tmdbWatchProviders,
   type WatchProvider,
 } from "./tmdb/tmdb-watch";

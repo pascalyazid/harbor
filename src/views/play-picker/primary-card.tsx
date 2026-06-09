@@ -6,7 +6,7 @@ import { useDebridClients } from "@/lib/debrid/registry";
 import type { ScoredStream } from "@/lib/streams/types";
 import { directStreamAvailable } from "@/lib/torrent/stremio-stream";
 import type { PlayEpisode } from "@/lib/view";
-import { confirmationLabel, displayTitle, streamSummaryParts } from "./picker-utils";
+import { confirmationLabel, displayTitle, hasUncachedMarker, streamSummaryParts } from "./picker-utils";
 import { PlayProvenance } from "./play-provenance";
 
 export function PrimaryCard({
@@ -38,7 +38,10 @@ export function PrimaryCard({
   const libraryDebrids = debrids.filter((d) => stream.inLibrary[d.slug]);
   const cachedDebrid = cachedDebrids[0] ?? null;
   const externalOnly = !stream.url && !stream.infoHash && !!(stream.externalUrl || stream.ytId);
-  const isCached = stream.url != null || cachedDebrid != null || isPreviouslyPlayed;
+  const isCached =
+    (stream.url != null && !stream.infoHash && !hasUncachedMarker(stream)) ||
+    cachedDebrid != null ||
+    isPreviouslyPlayed;
   const queueTarget = debrids.find((d) => d.queueCache);
   const canStream = !isCached && directStreamAvailable(stream);
   const summary = streamSummaryParts(stream);

@@ -1,5 +1,5 @@
 import { downloadDir as systemDownloadDir } from "@tauri-apps/api/path";
-import { exists } from "@tauri-apps/plugin-fs";
+import { exists, remove } from "@tauri-apps/plugin-fs";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useSyncExternalStore } from "react";
 import type { Meta } from "@/lib/cinemeta";
@@ -18,7 +18,7 @@ export type DownloadItem = {
   streamLabel: string | null;
   url: string;
   path: string;
-  status: "downloading" | "done" | "error" | "canceled";
+  status: "downloading" | "done" | "error" | "canceled" | "interrupted";
   receivedBytes: number;
   totalBytes: number | null;
   ratio: number;
@@ -41,10 +41,41 @@ const listeners = new Set<() => void>();
 
 let snapshot: DownloadItem[] = [];
 
+const PERSIST_KEY = "harbor.downloads.v1";
+
+function persist() {
+  try {
+    const durable = [...items.values()].map((d) => ({ ...d, bytesPerSec: 0 }));
+    localStorage.setItem(PERSIST_KEY, JSON.stringify(durable));
+  } catch {
+    /* ignore */
+  }
+}
+
 function rebuild() {
   snapshot = [...items.values()].sort((a, b) => b.startedAt - a.startedAt);
+  persist();
   listeners.forEach((l) => l());
 }
+
+function hydrate() {
+  try {
+    const raw = localStorage.getItem(PERSIST_KEY);
+    if (!raw) return;
+    const arr = JSON.parse(raw) as DownloadItem[];
+    if (!Array.isArray(arr)) return;
+    for (const d of arr) {
+      if (!d || typeof d.id !== "string" || typeof d.path !== "string") continue;
+      const status = d.status === "downloading" ? "interrupted" : d.status;
+      items.set(d.id, { ...d, status, bytesPerSec: 0 });
+    }
+    snapshot = [...items.values()].sort((a, b) => b.startedAt - a.startedAt);
+  } catch {
+    /* ignore */
+  }
+}
+
+hydrate();
 
 function patch(id: string, next: Partial<DownloadItem>) {
   const cur = items.get(id);
@@ -148,7 +179,7 @@ export async function enqueueDownload(args: EnqueueArgs): Promise<string> {
   speed.set(id, { bytes: 0, at: Date.now() });
   rebuild();
 
-  const handle = startDownload(url, path, (p) => {
+  const handle = startDownload(id, url, path, (p) => {
     const now = Date.now();
     const s = speed.get(id);
     let bps = 0;
@@ -185,10 +216,14 @@ export function cancelDownload(id: string): void {
 }
 
 export function removeDownload(id: string): void {
+  const item = items.get(id);
   handles.get(id)?.abort();
   handles.delete(id);
   speed.delete(id);
   if (items.delete(id)) rebuild();
+  if (item && item.status !== "done") {
+    void remove(`${item.path}.part`).catch(() => {});
+  }
 }
 
 export async function revealDownload(id: string): Promise<void> {

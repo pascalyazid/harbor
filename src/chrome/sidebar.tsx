@@ -11,14 +11,14 @@ import { DiscoverIcon } from "@/components/icons/discover-icon";
 import { HomeIcon } from "@/components/icons/home-icon";
 import { LibraryIcon } from "@/components/icons/library-icon";
 import { LiveTvIcon } from "@/components/icons/live-tv-icon";
+import { PlaylistVodIcon } from "@/components/icons/playlist-vod-icon";
 import { MoviesIcon } from "@/components/icons/movies-icon";
 import { SettingsIcon } from "@/components/icons/settings-icon";
 import { TvIcon } from "@/components/icons/tv-icon";
 import { ParentalPinModal } from "@/components/parental-pin-modal";
 import { useParental, type LockableTab } from "@/lib/parental";
 import { useView, type View } from "@/lib/view";
-import { Download } from "lucide-react";
-import { useActiveDownloadCount } from "@/lib/download/downloads-store";
+import { DownloadsNavIcon } from "@/chrome/downloads-nav-icon";
 
 type NavDef = {
   render: (active: boolean) => ReactNode;
@@ -29,20 +29,6 @@ type NavDef = {
   pinGated?: boolean;
 };
 
-function DownloadsNavIcon({ active }: { active: boolean }) {
-  const count = useActiveDownloadCount();
-  return (
-    <span className="relative inline-flex items-center justify-center">
-      <Download size={22} strokeWidth={active ? 2.4 : 2} />
-      {count > 0 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-accent px-[3px] text-[9.5px] font-bold leading-none text-canvas tabular-nums">
-          {count > 9 ? "9+" : count}
-        </span>
-      )}
-    </span>
-  );
-}
-
 const PRIMARY: NavDef[] = [
   { render: (active) => <HomeIcon active={active} />, label: "Home", view: "home" },
   { render: (active) => <DiscoverIcon active={active} />, label: "Discover", view: "discover", parentalKey: "discover" },
@@ -50,6 +36,7 @@ const PRIMARY: NavDef[] = [
   { render: (active) => <TvIcon active={active} />, label: "Shows", view: "shows", parentalKey: "shows" },
   { render: (active) => <AnimeIcon active={active} />, label: "Anime", view: "anime", hideKey: "anime", parentalKey: "anime" },
   { render: (active) => <LiveTvIcon active={active} />, label: "Live TV", view: "live", hideKey: "liveTv", parentalKey: "liveTv" },
+  { render: (active) => <PlaylistVodIcon active={active} />, label: "Playlists", view: "vod" },
 ];
 
 const COLLECTIONS: NavDef[] = [
@@ -178,6 +165,7 @@ function ScrollableNav({
 }) {
   const { settings } = useSettings();
   const isItemVisible = (item: NavDef) => {
+    if (item.view === "vod" && !settings.showPlaylistsTab) return false;
     if (item.hideKey && settings.hideContent[item.hideKey]) return false;
     if (locked && item.parentalKey && hiddenTabs[item.parentalKey]) return false;
     return true;

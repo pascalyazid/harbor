@@ -1,5 +1,5 @@
 import { Check, ChevronDown, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { EpisodeJumper } from "@/components/episode-jumper";
 import { Poster } from "@/components/poster";
 import type { Meta } from "@/lib/cinemeta";
@@ -8,10 +8,13 @@ import { formatRelativeWatched, getEpisodeProgress } from "@/lib/episode-progres
 import { franchiseTags, type FranchiseEntry } from "@/lib/providers/anime-detail";
 import type { KitsuEpisode } from "@/lib/providers/kitsu";
 import { useSettings } from "@/lib/settings";
+import { spoilerMaskFor, SPOILER_TEXT_CLASS, SPOILER_THUMB_CLASS, type SpoilerMask } from "@/lib/spoilers";
 import { fetchWatchedKeySet } from "@/lib/trakt/history";
 import { useTrakt } from "@/lib/trakt/provider";
 import { useView } from "@/lib/view";
 import { useAnilistWatched } from "@/lib/anilist/use-anilist-watched";
+import { EpisodeWatchedMenu, type WatchedMenuTarget } from "@/components/episode-watched-menu";
+import { manualWatchedVersion, subscribeManualWatched } from "@/lib/manual-watched";
 import { AnimeEpisodeStrip } from "./anime-episode-strip";
 import { UpcomingBadge } from "./badges";
 import { EpisodeDownloadButton } from "./episode-download-button";
@@ -55,18 +58,50 @@ export function AnimeEpisodes({
     episodes,
   );
   const { settings, update } = useSettings();
+  useSyncExternalStore(subscribeManualWatched, manualWatchedVersion);
+  const [watchedMenu, setWatchedMenu] = useState<WatchedMenuTarget | null>(null);
+  const openWatchedMenu = (
+    e: React.MouseEvent,
+    season: number,
+    episode: number,
+    watched: boolean,
+  ) => {
+    e.preventDefault();
+    setWatchedMenu({ x: e.clientX, y: e.clientY, season, episode, watched });
+  };
 
+  const progressByNum = useMemo(() => {
+    const m = new Map<number, { ratio: number; watched: boolean; startedAt: number }>();
+    for (const ep of episodes) {
+      m.set(
+        ep.number,
+        getEpisodeProgress(
+          meta.id,
+          ep.seasonNumber || 1,
+          ep.number,
+          ep.length ?? null,
+          ep.imdbId ?? null,
+          traktWatched,
+          undefined,
+          anilistWatched,
+        ),
+      );
+    }
+    return m;
+  }, [episodes, meta.id, traktWatched, anilistWatched]);
   const progressFor = (ep: KitsuEpisode) =>
-    getEpisodeProgress(
-      meta.id,
-      ep.seasonNumber || 1,
-      ep.number,
-      ep.length ?? null,
-      ep.imdbId ?? null,
-      traktWatched,
-      undefined,
-      anilistWatched,
-    );
+    progressByNum.get(ep.number) ?? { ratio: 0, watched: false, startedAt: 0 };
+  const nextUpNum = useMemo(() => {
+    for (const ep of episodes) {
+      if (!progressByNum.get(ep.number)?.watched) return ep.number;
+    }
+    return null;
+  }, [episodes, progressByNum]);
+  const spoilerFor = (ep: KitsuEpisode) =>
+    spoilerMaskFor(settings, {
+      watched: progressByNum.get(ep.number)?.watched ?? false,
+      isNextUp: ep.number === nextUpNum,
+    });
 
   const isOneOff = meta.type === "movie" || episodes.length <= 1;
   return (
@@ -95,16 +130,36 @@ export function AnimeEpisodes({
       {isOneOff ? (
         <MovieEntryCard meta={meta} ep={episodes[0]} watched={anilistCompleted} />
       ) : settings.episodeLayout === "strip" ? (
-        <AnimeEpisodeStrip meta={meta} episodes={episodes} progressFor={progressFor} />
+        <AnimeEpisodeStrip
+          meta={meta}
+          episodes={episodes}
+          progressFor={progressFor}
+          spoilerFor={spoilerFor}
+          onContextMenu={openWatchedMenu}
+        />
       ) : (
         <>
           <div className="flex flex-col gap-1">
             {episodes.map((ep) => (
-              <AnimeEpisodeRow key={ep.id} meta={meta} ep={ep} progress={progressFor(ep)} />
+              <AnimeEpisodeRow
+                key={ep.id}
+                meta={meta}
+                ep={ep}
+                progress={progressFor(ep)}
+                spoiler={spoilerFor(ep)}
+                onContextMenu={openWatchedMenu}
+              />
             ))}
           </div>
           <EpisodeJumper scrollRef={scrollRef} totalEpisodes={episodes.length} />
         </>
+      )}
+      {watchedMenu && (
+        <EpisodeWatchedMenu
+          metaId={meta.id}
+          target={watchedMenu}
+          onClose={() => setWatchedMenu(null)}
+        />
       )}
     </div>
   );
@@ -259,10 +314,14 @@ function AnimeEpisodeRow({
   meta,
   ep,
   progress,
+  spoiler,
+  onContextMenu,
 }: {
   meta: Meta;
   ep: KitsuEpisode;
   progress: { ratio: number; watched: boolean; startedAt: number };
+  spoiler?: SpoilerMask;
+  onContextMenu?: (e: React.MouseEvent, season: number, episode: number, watched: boolean) => void;
 }) {
   const { openPicker } = useView();
   const { settings } = useSettings();
@@ -282,6 +341,7 @@ function AnimeEpisodeRow({
     <div
       data-ep={ep.number}
       data-no-card-ring
+      onContextMenu={(e) => onContextMenu?.(e, ep.seasonNumber || 1, ep.number, progress.watched)}
       className="group flex gap-6 rounded-2xl px-4 py-5 transition-colors hover:bg-elevated/30"
     >
       <button
@@ -289,12 +349,14 @@ function AnimeEpisodeRow({
         className="flex min-w-0 flex-1 gap-6 text-left"
       >
         <div className="relative w-[200px] shrink-0">
-          <Poster
-            src={ep.thumbnail ?? undefined}
-            seed={String(ep.id)}
-            ratio="landscape"
-            className="rounded-lg"
-          />
+          <div className={spoiler?.thumb ? `overflow-hidden rounded-lg ${SPOILER_THUMB_CLASS}` : undefined}>
+            <Poster
+              src={ep.thumbnail ?? undefined}
+              seed={String(ep.id)}
+              ratio="landscape"
+              className="rounded-lg"
+            />
+          </div>
           <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
               <Play size={18} fill="currentColor" />
@@ -319,7 +381,9 @@ function AnimeEpisodeRow({
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <h4 className="flex items-center gap-2 truncate text-[16px] font-semibold text-ink">
-            <span className="truncate">{ep.title || `Episode ${ep.number}`}</span>
+            <span className={`truncate ${spoiler?.title ? SPOILER_TEXT_CLASS : ""}`}>
+              {ep.title || `Episode ${ep.number}`}
+            </span>
             {ep.filler && <FillerBadge />}
             {isUpcomingDate(ep.airdate) ? <UpcomingBadge /> : null}
           </h4>
@@ -344,7 +408,13 @@ function AnimeEpisodeRow({
             )}
           </p>
           {ep.synopsis && (
-            <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted">{ep.synopsis}</p>
+            <p
+              className={`line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted ${
+                spoiler?.desc ? SPOILER_TEXT_CLASS : ""
+              }`}
+            >
+              {ep.synopsis}
+            </p>
           )}
         </div>
       </button>

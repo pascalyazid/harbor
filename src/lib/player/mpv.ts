@@ -367,6 +367,9 @@ export function createMpvBridge(mpvOptions?: MpvOptions): PlayerBridge {
         emit();
       }
     },
+    setSubVisible(on) {
+      invoke("mpv_set_property", { name: "sub-visibility", value: on }).catch(() => {});
+    },
     setSubDelay(sec) {
       invoke("mpv_set_property", { name: "sub-delay", value: sec }).catch(() => {});
     },

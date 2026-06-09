@@ -1,6 +1,7 @@
 import { Library, Globe, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import traktLogo from "@/assets/trakt.svg";
+import simklLogo from "@/assets/simkl.png";
 import type { Settings } from "@/lib/settings";
 
 type Source = Settings["calendarSource"];
@@ -14,6 +15,10 @@ type Option = {
 
 const TraktGlyph = () => (
   <img src={traktLogo} alt="" className="h-3.5 w-3.5 object-contain" />
+);
+
+const SimklGlyph = () => (
+  <img src={simklLogo} alt="" className="h-3.5 w-3.5 object-contain" />
 );
 
 const OPTIONS: Option[] = [
@@ -37,9 +42,21 @@ const OPTIONS: Option[] = [
   },
   {
     id: "anticipated",
-    label: "Anticipated",
+    label: "Trakt anticipated",
     icon: TraktGlyph,
     hint: "The most anticipated upcoming releases on Trakt",
+  },
+  {
+    id: "simkl",
+    label: "My Simkl",
+    icon: SimklGlyph,
+    hint: "Upcoming episodes and movies from your Simkl plan-to-watch list",
+  },
+  {
+    id: "simkl-anticipated",
+    label: "Simkl premieres",
+    icon: SimklGlyph,
+    hint: "New shows and anime premiering this month, from Simkl",
   },
   {
     id: "custom",
@@ -53,12 +70,19 @@ export function SourceSwitcher({
   value,
   onChange,
   traktConnected,
+  simklConnected,
 }: {
   value: Source;
   onChange: (s: Source) => void;
   traktConnected: boolean;
+  simklConnected: boolean;
 }) {
-  const visible = OPTIONS.filter((o) => o.id !== "trakt" || traktConnected);
+  const visible = OPTIONS.filter(
+    (o) =>
+      (o.id !== "trakt" || traktConnected) &&
+      (o.id !== "simkl" || simklConnected) &&
+      (o.id !== "simkl-anticipated" || simklConnected),
+  );
   return (
     <div className="flex items-center gap-1 rounded-full border border-edge-soft bg-elevated/30 p-1">
       {visible.map((opt) => {

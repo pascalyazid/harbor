@@ -258,7 +258,7 @@ function CinemaSlide({
       .then((ids) => {
         if (cancelled) return;
         setTrailerCandidates(ids);
-        if (ids[0]) prefetchTrailer(ids[0], "low");
+        if (ids[0]) prefetchTrailer(ids[0], "360p");
       })
       .catch(() => {});
     return () => {
@@ -269,7 +269,7 @@ function CinemaSlide({
   useEffect(() => {
     if (!active || trailerCandidates.length === 0 || trailerInfo) return;
     let cancelled = false;
-    fetchTrailer(trailerCandidates[0], "low").then((info) => {
+    fetchTrailer(trailerCandidates[0], "360p").then((info) => {
       if (!cancelled && info) setTrailerInfo(info);
     });
     return () => {

@@ -1,0 +1,110 @@
+import type { IptvPlaylist } from "./types";
+import { classifyChannel } from "./vod-classify";
+import { cleanTitle, extractYear, parseSeriesEpisode, showTitleFromEpisode } from "./vod-title";
+
+export type VodMovie = {
+  id: string;
+  title: string;
+  year: number | null;
+  logo: string | null;
+  group: string | null;
+  url: string;
+  playlistId: string;
+  playlistName: string;
+};
+
+export type VodEpisode = {
+  season: number;
+  episode: number;
+  title: string;
+  url: string;
+  logo: string | null;
+};
+
+export type VodSeries = {
+  id: string;
+  title: string;
+  logo: string | null;
+  group: string | null;
+  playlistId: string;
+  playlistName: string;
+  episodes: VodEpisode[];
+  seasons: number[];
+};
+
+export type VodLibrary = { movies: VodMovie[]; series: VodSeries[] };
+
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+export function buildVodLibrary(
+  playlists: Iterable<IptvPlaylist>,
+  names: Map<string, string>,
+): VodLibrary {
+  const movies: VodMovie[] = [];
+  const movieSeen = new Set<string>();
+  const seriesMap = new Map<string, VodSeries>();
+
+  for (const pl of playlists) {
+    const plName = names.get(pl.id) ?? pl.name;
+    for (const ch of pl.channels) {
+      const kind = classifyChannel(ch);
+      if (kind === "live") continue;
+
+      if (kind === "movie") {
+        const title = cleanTitle(ch.name);
+        const year = extractYear(ch.name);
+        const dedupe = `${pl.id}|${norm(title)}|${year ?? ""}`;
+        if (movieSeen.has(dedupe)) continue;
+        movieSeen.add(dedupe);
+        movies.push({
+          id: `vod:${ch.id}`,
+          title,
+          year,
+          logo: ch.logo,
+          group: ch.group,
+          url: ch.url,
+          playlistId: pl.id,
+          playlistName: plName,
+        });
+        continue;
+      }
+
+      const show = showTitleFromEpisode(ch.name) || cleanTitle(ch.name);
+      const key = `${pl.id}|${norm(show)}`;
+      let series = seriesMap.get(key);
+      if (!series) {
+        series = {
+          id: `vod:series:${pl.id}:${norm(show)}`,
+          title: show,
+          logo: ch.logo,
+          group: ch.group,
+          playlistId: pl.id,
+          playlistName: plName,
+          episodes: [],
+          seasons: [],
+        };
+        seriesMap.set(key, series);
+      }
+      if (!series.logo && ch.logo) series.logo = ch.logo;
+      const se = parseSeriesEpisode(ch.name) ?? { season: 1, episode: series.episodes.length + 1 };
+      series.episodes.push({
+        season: se.season,
+        episode: se.episode,
+        title: cleanTitle(ch.name),
+        url: ch.url,
+        logo: ch.logo,
+      });
+    }
+  }
+
+  const series = [...seriesMap.values()];
+  for (const s of series) {
+    s.episodes.sort((a, b) => a.season - b.season || a.episode - b.episode);
+    s.seasons = [...new Set(s.episodes.map((e) => e.season))].sort((a, b) => a - b);
+  }
+  movies.sort((a, b) => a.title.localeCompare(b.title));
+  series.sort((a, b) => a.title.localeCompare(b.title));
+  return { movies, series };
+}

@@ -7,6 +7,27 @@ import { LanguagesPicker } from "./streaming-panel";
 export function LanguagePanel() {
   const { settings, update } = useSettings();
   return (
+    <>
+    <Section
+      title="Subtitle languages"
+      subtitle="When playback starts, Harbor automatically finds and loads a subtitle in one of these languages, so you never have to search by hand. The first available match wins, so put your main language first."
+    >
+      <LanguagesPicker
+        value={settings.preferredSubLangs}
+        onChange={(langs) => update({ preferredSubLangs: langs })}
+      />
+    </Section>
+
+    <Section
+      title="Audio languages"
+      subtitle="When a release ships multiple audio tracks, Harbor selects the first match from this list."
+    >
+      <LanguagesPicker
+        value={settings.preferredAudioLangs}
+        onChange={(langs) => update({ preferredAudioLangs: langs })}
+      />
+    </Section>
+
     <Section
       title="Preferred languages"
       subtitle="Streams in these languages rank first. Toggle below to drop everything else."
@@ -36,5 +57,6 @@ export function LanguagePanel() {
         </button>
       </div>
     </Section>
+    </>
   );
 }

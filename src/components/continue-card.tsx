@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Play, X } from "lucide-react";
+import simklLogo from "@/assets/simkl.png";
 import { meta as fetchMeta, type Meta } from "@/lib/cinemeta";
 import { useContextMenu } from "@/lib/context-menu";
 import { readSnapshot, useSnapshotVersion } from "@/lib/snapshots";
@@ -19,10 +20,11 @@ export const ContinueCard = memo(function ContinueCard({ item, watched = false, 
   const { open: openContextMenu } = useContextMenu();
   useSnapshotVersion();
   const snapshot = readSnapshot(item._id);
+  const isExternal = item.external === "simkl";
   const dur = item.state?.duration ?? 0;
   const off = item.state?.timeOffset ?? 0;
   const progress = dur > 0 ? Math.min(1, off / dur) : 0;
-  const remaining = dur > 0 ? formatRemaining(dur - off) : "";
+  const remaining = dur > 0 && !isExternal ? formatRemaining(dur - off) : "";
   const ep =
     item.state?.season && item.state?.episode
       ? { season: item.state.season, episode: item.state.episode }
@@ -144,9 +146,13 @@ export const ContinueCard = memo(function ContinueCard({ item, watched = false, 
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-canvas/80 to-transparent" />
-        {(sub || remaining) && (
+        {(sub || remaining || isExternal) && (
           <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-md bg-canvas/95 px-2 py-1 text-[11px]">
-            <Play size={11} fill="currentColor" className="text-ink" />
+            {isExternal ? (
+              <img src={simklLogo} alt="" className="h-3.5 w-3.5 rounded-sm" title="Paused on Simkl" />
+            ) : (
+              <Play size={11} fill="currentColor" className="text-ink" />
+            )}
             {sub && <span className="font-medium text-ink">{sub}</span>}
             {sub && remaining && <span className="text-ink-subtle">·</span>}
             {remaining && <span className="text-ink-muted">{remaining}</span>}

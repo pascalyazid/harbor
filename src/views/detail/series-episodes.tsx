@@ -13,8 +13,11 @@ import {
 } from "@/lib/providers/tmdb";
 import { tvdbEpisodes, tvdbSeriesByImdb, type TvdbEpisode } from "@/lib/providers/tvdb";
 import { useSettings } from "@/lib/settings";
+import { spoilerMaskFor } from "@/lib/spoilers";
 import { fetchWatchedKeySet } from "@/lib/trakt/history";
 import { useTrakt } from "@/lib/trakt/provider";
+import { loadSimklWatchedMap, simklWatchedForId } from "@/lib/simkl/list-status";
+import { useSimkl } from "@/lib/simkl/provider";
 import { NewBadge } from "./badges";
 import { CinemetaEpisodeRow } from "./cinemeta-episodes";
 import { EpisodeLayoutToggle } from "./episode-layout-toggle";
@@ -43,6 +46,7 @@ export function SeriesEpisodes({
 }) {
   const { settings, update } = useSettings();
   const { isConnected: traktConnected } = useTrakt();
+  const { isConnected: simklConnected } = useSimkl();
   useSyncExternalStore(subscribeManualWatched, manualWatchedVersion);
   const [watchedMenu, setWatchedMenu] = useState<WatchedMenuTarget | null>(null);
   const openWatchedMenu = (
@@ -65,6 +69,7 @@ export function SeriesEpisodes({
   const [tvdbBySeason, setTvdbBySeason] = useState<Map<number, Map<number, TvdbEpisode>>>(new Map());
   const [loading, setLoading] = useState(true);
   const [traktWatched, setTraktWatched] = useState<Set<string>>(() => new Set());
+  const [simklWatched, setSimklWatched] = useState<Set<string>>(() => new Set());
   const cache = useRef<Map<number, Episode[]>>(new Map());
 
   useEffect(() => {
@@ -82,6 +87,22 @@ export function SeriesEpisodes({
       cancelled = true;
     };
   }, [traktConnected]);
+
+  useEffect(() => {
+    if (!simklConnected) {
+      setSimklWatched(new Set());
+      return;
+    }
+    let cancelled = false;
+    loadSimklWatchedMap()
+      .then((map) => {
+        if (!cancelled) setSimklWatched(simklWatchedForId(map, imdbId, meta.id));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [simklConnected, imdbId, meta.id]);
 
   const traktKey = imdbId ?? meta.id;
 
@@ -179,6 +200,38 @@ export function SeriesEpisodes({
 
   const activeSeason = seasons.find((s) => s.seasonNumber === active);
 
+  const progressByEp = useMemo(() => {
+    const m = new Map<number, { ratio: number; watched: boolean; startedAt: number }>();
+    for (const ep of enrichedEpisodes) {
+      m.set(
+        ep.episodeNumber,
+        getEpisodeProgress(
+          meta.id,
+          ep.seasonNumber,
+          ep.episodeNumber,
+          ep.runtime,
+          traktKey,
+          traktWatched,
+          stremioWatched,
+          undefined,
+          simklWatched,
+        ),
+      );
+    }
+    return m;
+  }, [enrichedEpisodes, meta.id, traktKey, traktWatched, stremioWatched, simklWatched]);
+  const nextUpEp = useMemo(() => {
+    for (const ep of enrichedEpisodes) {
+      if (!progressByEp.get(ep.episodeNumber)?.watched) return ep.episodeNumber;
+    }
+    return null;
+  }, [enrichedEpisodes, progressByEp]);
+  const spoilerFor = (epNumber: number) =>
+    spoilerMaskFor(settings, {
+      watched: progressByEp.get(epNumber)?.watched ?? false,
+      isNextUp: epNumber === nextUpEp,
+    });
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-end justify-between gap-6">
@@ -235,6 +288,8 @@ export function SeriesEpisodes({
               traktKey,
               traktWatched,
               stremioWatched,
+              undefined,
+              simklWatched,
             )
           }
           thumbnailFor={(ep) =>
@@ -242,6 +297,7 @@ export function SeriesEpisodes({
               (v) => v.season === ep.seasonNumber && v.episode === ep.episodeNumber,
             )?.thumbnail
           }
+          spoilerFor={(ep) => spoilerFor(ep.episodeNumber)}
           onContextMenu={openWatchedMenu}
         />
       )}
@@ -258,15 +314,8 @@ export function SeriesEpisodes({
                   (v) => v.season === ep.seasonNumber && v.episode === ep.episodeNumber,
                 )?.thumbnail
               }
-              progress={getEpisodeProgress(
-                meta.id,
-                ep.seasonNumber,
-                ep.episodeNumber,
-                ep.runtime,
-                traktKey,
-                traktWatched,
-                stremioWatched,
-              )}
+              progress={progressByEp.get(ep.episodeNumber)!}
+              spoiler={spoilerFor(ep.episodeNumber)}
               onContextMenu={openWatchedMenu}
             />
           ))}

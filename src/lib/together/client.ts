@@ -231,6 +231,11 @@ export class TogetherClient {
     this.send({ t: "claim-host", room: this.room, clientId: this.clientId, fresh });
   }
 
+  private reconcileHostClaim(hostClientId: string | null): void {
+    if (!hostClientId) return;
+    this.claimedHost = hostClientId === this.clientId;
+  }
+
   startRoom(): void {
     if (!this.room) return;
     this.send({ t: "start", room: this.room, clientId: this.clientId });
@@ -358,6 +363,7 @@ export class TogetherClient {
           hostClientId: msg.hostClientId,
           started: msg.started ?? false,
         });
+        this.reconcileHostClaim(msg.hostClientId);
         if (msg.state) {
           this.emit({ kind: "incoming-state", state: msg.state });
           const stateAuthorPresent =
@@ -388,6 +394,7 @@ export class TogetherClient {
         return;
       case "host":
         this.update({ hostClientId: msg.hostClientId });
+        this.reconcileHostClaim(msg.hostClientId);
         return;
       case "started":
         this.update({ started: msg.started });
@@ -510,7 +517,8 @@ export class TogetherClient {
       msg.t === "presence" ||
       msg.t === "leave" ||
       msg.t === "hello" ||
-      msg.t === "profile"
+      msg.t === "profile" ||
+      msg.t === "claim-host"
     ) {
       return;
     }

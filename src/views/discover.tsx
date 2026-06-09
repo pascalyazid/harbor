@@ -5,6 +5,7 @@ import { LazyMount } from "@/components/lazy-mount";
 import { DiscoveryQueueCta } from "@/components/discovery-queue-cta";
 import { FeaturedBanner } from "@/components/featured-banner";
 import { GenreTiles } from "@/components/genre-tiles";
+import { LanguageTiles } from "@/components/language-tiles";
 import { ScrollRootContext } from "@/components/row";
 import type { Meta } from "@/lib/cinemeta";
 import { fetchCriticsPickList, fetchFeatured, getPool, selectDailyRows, type FeedItem } from "@/lib/feed";
@@ -211,6 +212,7 @@ export function Discover({ active = true }: { active?: boolean }) {
 
               {i === 0 && <GenreTiles />}
               {i === 1 && queue.length > 0 && <DiscoveryQueueCta items={queue} />}
+              {i === 2 && <LanguageTiles />}
               {i === 3 && criticsPick && (
                 <LazyMount minHeight={580}>
                   <CriticsPick meta={criticsPick} />

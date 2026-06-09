@@ -24,6 +24,35 @@ export function Header({ filter }: { filter: MetaFilter }) {
         </h1>
       )}
       <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-muted">{subtitle}</p>
+      {(filter.kind === "language" || filter.kind === "country") && (
+        <MediaTypeToggle filter={filter} />
+      )}
+    </div>
+  );
+}
+
+function MediaTypeToggle({ filter }: { filter: MetaFilter }) {
+  const { openFilter } = useView();
+  const set = (mediaType: "movie" | "tv") => {
+    if (mediaType === filter.mediaType) return;
+    openFilter({ ...filter, mediaType });
+  };
+  return (
+    <div className="mt-5 inline-flex gap-1 rounded-full bg-elevated/50 p-1 ring-1 ring-edge-soft/60">
+      {(["tv", "movie"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => set(m)}
+          className={`rounded-full px-5 py-1.5 text-[13px] font-semibold transition-colors ${
+            filter.mediaType === m
+              ? "bg-ink text-canvas"
+              : "text-ink-muted hover:bg-raised hover:text-ink"
+          }`}
+        >
+          {m === "tv" ? "Shows" : "Movies"}
+        </button>
+      ))}
     </div>
   );
 }

@@ -286,6 +286,8 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
       const activeId = s.activeId === id ? profiles[0]?.id ?? null : s.activeId;
       try {
         localStorage.removeItem(`harbor.auth.${id}`);
+        localStorage.removeItem(`harbor.favorites.v1.${id}`);
+        localStorage.removeItem(`harbor.localwatchlist.v1.${id}`);
       } catch {
         /* ignore */
       }

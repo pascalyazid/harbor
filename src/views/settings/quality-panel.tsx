@@ -57,6 +57,49 @@ export function QualityPanel() {
       </Section>
 
       <Section
+        title="Poster size"
+        subtitle="Scale every poster and card across Home, Discover, and your library. Bump it up on a 4K or large display where the defaults feel small, or shrink it for a denser grid."
+      >
+        <Segmented
+          value={posterSizeKey(settings.posterScale)}
+          options={POSTER_SIZES.map((p) => ({ value: p.value, label: p.label }))}
+          onChange={(v) =>
+            update({ posterScale: POSTER_SIZES.find((p) => p.value === v)?.scale ?? 1 })
+          }
+        />
+      </Section>
+
+      <Section
+        title="Trailer quality"
+        subtitle="How sharp the trailer is when you hit the preview button. Auto picks from your connection speed. 1080p and Best merge separate video and audio with the bundled ffmpeg, so they take a beat longer to start."
+      >
+        <Segmented
+          value={settings.trailerQuality}
+          options={[
+            { value: "auto", label: "Auto" },
+            { value: "360p", label: "360p" },
+            { value: "720p", label: "720p" },
+            { value: "1080p", label: "1080p" },
+            { value: "best", label: "Best" },
+          ]}
+          onChange={(v) => update({ trailerQuality: v })}
+        />
+      </Section>
+
+      <Section
+        title="Next episode prompt"
+        subtitle="When the Up Next pill appears before an episode ends. Auto scales to the episode length, so short episodes stop prompting so early. Off hides it."
+      >
+        <Segmented
+          value={nextEpLeadKey(settings.nextEpisodeLeadSec)}
+          options={NEXT_EP_LEADS.map((o) => ({ value: o.value, label: o.label }))}
+          onChange={(v) =>
+            update({ nextEpisodeLeadSec: NEXT_EP_LEADS.find((o) => o.value === v)?.sec ?? -1 })
+          }
+        />
+      </Section>
+
+      <Section
         title="Downloads"
         subtitle="Where Harbor saves videos when you hit Download in the player. Pick any folder, including one on a different drive."
       >
@@ -72,6 +115,64 @@ export function QualityPanel() {
         <CustomCodePanel />
       </Section>
     </>
+  );
+}
+
+const POSTER_SIZES = [
+  { value: "compact", label: "Compact", scale: 0.85 },
+  { value: "default", label: "Default", scale: 1 },
+  { value: "large", label: "Large", scale: 1.25 },
+  { value: "huge", label: "Huge", scale: 1.55 },
+] as const;
+
+function posterSizeKey(scale: number): string {
+  let best: (typeof POSTER_SIZES)[number] = POSTER_SIZES[0];
+  for (const p of POSTER_SIZES) {
+    if (Math.abs(p.scale - scale) < Math.abs(best.scale - scale)) best = p;
+  }
+  return best.value;
+}
+
+const NEXT_EP_LEADS = [
+  { value: "auto", label: "Auto", sec: -1 },
+  { value: "off", label: "Off", sec: 0 },
+  { value: "30", label: "30s", sec: 30 },
+  { value: "45", label: "45s", sec: 45 },
+  { value: "60", label: "1 min", sec: 60 },
+  { value: "90", label: "1.5 min", sec: 90 },
+  { value: "120", label: "2 min", sec: 120 },
+] as const;
+
+function nextEpLeadKey(sec: number): string {
+  return NEXT_EP_LEADS.find((o) => o.sec === sec)?.value ?? "auto";
+}
+
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="flex w-fit flex-wrap gap-1 rounded-full bg-elevated/40 p-1 ring-1 ring-edge-soft/60">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`rounded-full px-4 py-1.5 text-[12.5px] font-semibold transition-colors ${
+            value === o.value
+              ? "bg-ink text-canvas"
+              : "text-ink-muted hover:bg-raised hover:text-ink"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -30,11 +30,13 @@ const PRIMARY: Tab[] = [
   { label: "Shows", view: "shows", parentalKey: "shows" },
   { label: "Anime", view: "anime", parentalKey: "anime" },
   { label: "Live TV", view: "live", parentalKey: "liveTv" },
+  { label: "Playlists", view: "vod" },
 ];
 
 const SECONDARY: Tab[] = [
   { label: "Calendar", view: "calendar", parentalKey: "calendar" },
   { label: "Library", view: "library", parentalKey: "library" },
+  { label: "Downloads", view: "downloads" },
   { label: "Addons", view: "addons", parentalKey: "addons" },
 ];
 
@@ -59,7 +61,11 @@ export function TopDock() {
   };
 
   const navEntries: NavEntry[] = [...PRIMARY, ...SECONDARY]
-    .filter((t) => !t.parentalKey || !locked || !hiddenTabs[t.parentalKey])
+    .filter(
+      (t) =>
+        (t.view !== "vod" || settings.showPlaylistsTab) &&
+        (!t.parentalKey || !locked || !hiddenTabs[t.parentalKey]),
+    )
     .map((t) => {
       const active = view === t.view;
       return {

@@ -12,6 +12,10 @@ const FORMAT_LOW: &str =
     "18/best[height<=360][ext=mp4][vcodec!=none][acodec!=none]/worst[ext=mp4][vcodec!=none][acodec!=none]";
 const FORMAT_HIGH: &str =
     "22/18/best[ext=mp4][vcodec!=none][acodec!=none][height<=720]/best[vcodec!=none][acodec!=none]";
+const FORMAT_1080: &str =
+    "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]/best";
+const FORMAT_BEST: &str =
+    "bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best";
 
 fn cache_dir() -> PathBuf {
     std::env::temp_dir().join("harbor-trailers")
@@ -30,8 +34,10 @@ fn sanitize_id(id: &str) -> Result<String, String> {
 
 fn normalize_quality(q: Option<String>) -> &'static str {
     match q.as_deref() {
-        Some("low") => "low",
-        _ => "high",
+        Some("low") | Some("360p") => "360p",
+        Some("1080p") => "1080p",
+        Some("best") => "best",
+        _ => "720p",
     }
 }
 
@@ -40,7 +46,16 @@ fn quality_path(id: &str, quality: &str) -> PathBuf {
 }
 
 fn format_for(quality: &str) -> &'static str {
-    if quality == "low" { FORMAT_LOW } else { FORMAT_HIGH }
+    match quality {
+        "360p" => FORMAT_LOW,
+        "1080p" => FORMAT_1080,
+        "best" => FORMAT_BEST,
+        _ => FORMAT_HIGH,
+    }
+}
+
+fn needs_merge(quality: &str) -> bool {
+    matches!(quality, "1080p" | "best")
 }
 
 fn cached_info(path: &Path, quality: &str, size: u64) -> TrailerInfo {
@@ -151,21 +166,30 @@ pub async fn fetch_trailer(
     let duration_seconds = meta["duration"].as_f64().unwrap_or(0.0) as u64;
 
     let file_path_str = file_path.to_string_lossy().to_string();
+    let mut dl_args: Vec<String> = vec![
+        "-f".into(),
+        format_for(quality).into(),
+        "-o".into(),
+        file_path_str.clone(),
+        "--no-playlist".into(),
+        "--no-warnings".into(),
+        "--quiet".into(),
+        "--force-overwrites".into(),
+    ];
+    if needs_merge(quality) {
+        if let Some(ff) = crate::transcode::locate_ffmpeg() {
+            dl_args.push("--ffmpeg-location".into());
+            dl_args.push(ff.to_string_lossy().to_string());
+        }
+        dl_args.push("--merge-output-format".into());
+        dl_args.push("mp4".into());
+    }
+    dl_args.push(url.clone());
     let download_sidecar = app
         .shell()
         .sidecar("yt-dlp")
         .map_err(|e| format!("sidecar init: {}", e))?
-        .args([
-            "-f",
-            format_for(quality),
-            "-o",
-            &file_path_str,
-            "--no-playlist",
-            "--no-warnings",
-            "--quiet",
-            "--force-overwrites",
-            &url,
-        ]);
+        .args(dl_args);
 
     let download_output = tokio::time::timeout(DOWNLOAD_TIMEOUT, download_sidecar.output())
         .await

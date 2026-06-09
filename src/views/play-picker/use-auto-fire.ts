@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { engineP2pEligible } from "@/lib/torrent/stremio-stream";
 import type { ScoredStream } from "@/lib/streams/types";
 import { hasInstantMarker, streamMatchesLangs } from "./picker-utils";
 
@@ -76,7 +75,7 @@ export function useAutoFire(args: {
     const idx = Math.min((attempt ?? 0) + autoAttemptIdx, autoCandidates.length - 1);
     const pick = autoCandidates[idx];
     if (!pick) return;
-    const pickInstant = isCached(pick) || !!pick.url || engineP2pEligible(pick);
+    const pickInstant = isCached(pick) || !!pick.url;
     if (!pickInstant) {
       if (pipelineDone) setAutoCancelled(true);
       return;

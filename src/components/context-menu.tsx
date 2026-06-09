@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkCheck, ClipboardPaste, Copy, Download, Info, Maximize, Navigation, UserPlus } from "lucide-react";
+import { Bookmark, BookmarkCheck, ClipboardPaste, Copy, Download, Info, ListChecks, ListPlus, Maximize, Navigation, Star, UserPlus } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useActiveAddon } from "@/lib/active-addon";
 import { useContextMenu, type ViewSummonable } from "@/lib/context-menu";
@@ -7,6 +7,8 @@ import { useTogether } from "@/lib/together/provider";
 import type { ParticipantLocation } from "@/lib/together/protocol";
 import { useView } from "@/lib/view";
 import { toggleWatchlist, useInWatchlist } from "@/lib/watchlist";
+import { useIsFavorite, useMediaFavorites } from "@/lib/media-favorites";
+import { useInLocalWatchlist, useLocalWatchlist } from "@/lib/local-watchlist";
 
 const MENU_WIDTH = 220;
 const MENU_HEIGHT = 120;
@@ -52,6 +54,10 @@ export function ContextMenu() {
   const canGoToHost = inSession && !isHost && hostLocation != null;
   const targetMetaId = state?.target.kind === "meta" ? state.target.meta.id : undefined;
   const isWatchlisted = useInWatchlist(targetMetaId);
+  const { toggle: toggleFavorite } = useMediaFavorites();
+  const isFav = useIsFavorite(targetMetaId);
+  const { toggle: toggleLocalList } = useLocalWatchlist();
+  const isLocal = useInLocalWatchlist(targetMetaId);
 
   const goToHost = () => {
     if (!hostLocation) return;
@@ -174,6 +180,30 @@ export function ContextMenu() {
         label={isWatchlisted ? "In watchlist" : "Add to watchlist"}
         onClick={handleWatchlist}
         accent={isWatchlisted}
+      />,
+    );
+    items.push(
+      <Item
+        key="favorite"
+        icon={<Star size={14} strokeWidth={2} fill={isFav ? "currentColor" : "none"} />}
+        label={isFav ? "Favorited" : "Favorite"}
+        onClick={() => {
+          toggleFavorite({ id: meta.id, type: meta.type, name: meta.name, poster: meta.poster });
+          close();
+        }}
+        accent={isFav}
+      />,
+    );
+    items.push(
+      <Item
+        key="local-list"
+        icon={isLocal ? <ListChecks size={14} strokeWidth={2} /> : <ListPlus size={14} strokeWidth={2} />}
+        label={isLocal ? "In my list" : "Add to my list"}
+        onClick={() => {
+          toggleLocalList({ id: meta.id, type: meta.type, name: meta.name, poster: meta.poster });
+          close();
+        }}
+        accent={isLocal}
       />,
     );
     if (inSession && !playerActions) {

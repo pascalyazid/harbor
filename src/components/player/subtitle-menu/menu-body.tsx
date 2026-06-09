@@ -1,15 +1,16 @@
-import { Check, FolderOpen, Loader2, Search as SearchIcon, SlidersHorizontal, X } from "lucide-react";
+import { Check, FolderOpen, Languages, Loader2, Search as SearchIcon, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Flag } from "@/components/flag";
-import type { TrackInfo } from "@/lib/player/bridge";
-import { languageName } from "@/lib/subtitles/language";
+import { markImportedSub } from "@/lib/player/imported-subs";
 import { Tooltip } from "../transport/tooltip";
 import { DelayRow } from "./delay-row";
 import { SearchSection } from "./search-section";
+import { VariantRow } from "./variant-row";
 import type { SubtitleMenuProps } from "./types";
 import { groupByLang, isVeryNewRelease } from "./utils";
 
 type SourceFilter = "all" | "embedded" | "external";
+const ALL_LANGS = "__all__";
 
 export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
   const { tracks, selectedId, onSelect, onClose, delaySec, onDelay, metaReleaseDate, onOpenStyleBar } = props;
@@ -20,6 +21,7 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
   const [hideHI, setHideHI] = useState(false);
   const [forcedOnly, setForcedOnly] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [justImported, setJustImported] = useState<string | null>(null);
 
   useEffect(() => {
     if (tracks.length > 0) return;
@@ -33,6 +35,7 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
       setActiveLang(null);
       return;
     }
+    if (activeLang === ALL_LANGS) return;
     if (!activeLang || !groups.some((g) => g.langKey === activeLang)) {
       const sel = groups.find((g) => g.variants.some((v) => v.id === selectedId));
       setActiveLang(sel?.langKey ?? groups[0].langKey);
@@ -40,12 +43,13 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
   }, [groups, activeLang, selectedId]);
 
   const veryNewMovie = useMemo(() => isVeryNewRelease(metaReleaseDate), [metaReleaseDate]);
+  const allLangs = activeLang === ALL_LANGS;
   const activeGroup = useMemo(
     () => groups.find((g) => g.langKey === activeLang) ?? null,
     [groups, activeLang],
   );
   const visibleVariants = useMemo(() => {
-    const list = activeGroup?.variants ?? [];
+    const list = allLangs ? tracks : (activeGroup?.variants ?? []);
     return list.filter((t) => {
       if (sourceFilter === "embedded" && t.external) return false;
       if (sourceFilter === "external" && !t.external) return false;
@@ -53,7 +57,7 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
       if (forcedOnly && !t.forced) return false;
       return true;
     });
-  }, [activeGroup, sourceFilter, hideHI, forcedOnly]);
+  }, [allLangs, tracks, activeGroup, sourceFilter, hideHI, forcedOnly]);
 
   const totalEmbedded = tracks.filter((t) => !t.external).length;
   const totalExternal = tracks.filter((t) => t.external).length;
@@ -76,7 +80,10 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
         setLocalError("Couldn't load that subtitle file. Try another.");
         return;
       }
-      onClose();
+      markImportedSub(name);
+      setActiveLang(ALL_LANGS);
+      setJustImported(name);
+      window.setTimeout(() => onClose(), 1700);
     } catch (e) {
       console.warn("[subtitles] local load failed", e);
       setLocalError("Couldn't load that subtitle file. Try another.");
@@ -148,6 +155,20 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
               Languages
             </div>
           )}
+          {groups.length > 1 && (
+            <button
+              onClick={() => setActiveLang(ALL_LANGS)}
+              className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12.5px] font-medium transition-colors ${
+                allLangs
+                  ? "bg-elevated text-ink ring-1 ring-edge"
+                  : "text-ink-muted hover:bg-elevated/60 hover:text-ink"
+              }`}
+            >
+              <Languages size={14} strokeWidth={2} className="shrink-0" />
+              <span className="flex-1 truncate">All languages</span>
+              <span className="text-[10.5px] tabular-nums text-ink-subtle">{tracks.length}</span>
+            </button>
+          )}
           {groups.map((g) => {
             const isActive = activeLang === g.langKey;
             const hasSelected = g.variants.some((v) => v.id === selectedId);
@@ -175,7 +196,7 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
         </aside>
 
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {!searchOpen && tracks.length > 0 && activeGroup && (
+          {!searchOpen && tracks.length > 0 && (activeGroup || allLangs) && (
             <div className="flex flex-wrap items-center gap-1.5 border-b border-edge-soft bg-canvas/15 px-3 py-2">
               <Tab
                 active={sourceFilter === "all"}
@@ -219,6 +240,7 @@ export function MenuBody(props: SubtitleMenuProps & { onClose: () => void }) {
             </div>
           ) : (
           <div className="flex-1 overflow-y-auto">
+            {justImported && <ImportBanner name={justImported} />}
             {tracks.length === 0 ? (
               <EmptyState searchSettled={searchSettled} veryNewMovie={veryNewMovie} />
             ) : visibleVariants.length === 0 ? (
@@ -332,88 +354,28 @@ function ToggleChip({
   );
 }
 
-function VariantRow({
-  track,
-  selected,
-  onPick,
-}: {
-  track: TrackInfo;
-  selected: boolean;
-  onPick: () => void;
-}) {
-  const tags: { label: string; tone: "warn" | "info" | "default" }[] = [];
-  if (track.forced) tags.push({ label: "Forced", tone: "info" });
-  if (track.hearingImpaired) tags.push({ label: "HI/SDH", tone: "warn" });
-  if (track.default) tags.push({ label: "Default", tone: "default" });
-  const sourceLabel = track.external ? "External" : "Embedded";
-  const codec = track.codec?.toUpperCase();
-  const release = pickReleaseHint(track);
-  const titleText = track.title?.trim() || (track.external ? "External subtitle" : "Embedded track");
-  const langName = track.lang ? languageName(track.lang) : "Unknown";
-
+function ImportBanner({ name }: { name: string }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   return (
-    <button
-      onClick={onPick}
-      className={`flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-        selected
-          ? "bg-elevated ring-1 ring-edge"
-          : "hover:bg-canvas/55"
+    <div
+      className={`mx-2 mt-2 flex items-center gap-3 overflow-hidden rounded-xl border border-accent/35 bg-accent/10 px-3.5 py-2.5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        shown ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.97] opacity-0"
       }`}
     >
-      <span
-        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
-          selected ? "bg-accent text-canvas" : "bg-raised text-ink-subtle"
-        }`}
-        aria-hidden
-      >
-        {selected ? <Check size={9} strokeWidth={3} /> : null}
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-canvas shadow-[0_0_18px_-2px_var(--color-accent)]">
+        <Check size={16} strokeWidth={3} />
       </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="truncate text-[12.5px] font-medium leading-snug text-ink">
-          {titleText}
-        </p>
-        {release && (
-          <p className="truncate font-mono text-[10.5px] leading-snug text-ink-muted">{release}</p>
-        )}
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10.5px] text-ink-subtle">
-          <span className="font-semibold uppercase tracking-[0.1em]">{langName}</span>
-          <span aria-hidden>·</span>
-          <span>{sourceLabel}</span>
-          {codec && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{codec}</span>
-            </>
-          )}
-          {tags.map((t) => (
-            <span
-              key={t.label}
-              className={`rounded px-1 py-px text-[9.5px] font-bold uppercase tracking-[0.1em] ${
-                t.tone === "warn"
-                  ? "bg-amber-400/15 text-amber-200 ring-1 ring-amber-400/30"
-                  : t.tone === "info"
-                    ? "bg-sky-400/15 text-sky-200 ring-1 ring-sky-400/30"
-                    : "bg-raised text-ink-muted ring-1 ring-edge-soft"
-              }`}
-            >
-              {t.label}
-            </span>
-          ))}
-        </div>
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-[13px] font-semibold text-ink">{name}</span>
+        <span className="text-[11px] font-medium text-accent">Imported and now playing</span>
       </div>
-    </button>
+      <Sparkles size={15} className="ml-auto shrink-0 text-accent" />
+    </div>
   );
-}
-
-function pickReleaseHint(track: TrackInfo): string | null {
-  const t = track.title;
-  if (!t) return null;
-  const trimmed = t.trim();
-  if (!trimmed) return null;
-  if (/\.(srt|vtt|ass|ssa|sub)$/i.test(trimmed)) return trimmed;
-  if (/[-.][A-Z0-9]{2,}/.test(trimmed)) return trimmed;
-  if (trimmed.length > 24) return trimmed;
-  return null;
 }
 
 function EmptyState({ searchSettled, veryNewMovie }: { searchSettled: boolean; veryNewMovie: boolean }) {

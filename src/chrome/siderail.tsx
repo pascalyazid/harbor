@@ -26,11 +26,13 @@ const PRIMARY: Tab[] = [
   { label: "Shows", view: "shows", parentalKey: "shows" },
   { label: "Anime", view: "anime", parentalKey: "anime" },
   { label: "Live TV", view: "live", parentalKey: "liveTv" },
+  { label: "Playlists", view: "vod" },
 ];
 
 const SECONDARY: Tab[] = [
   { label: "Calendar", view: "calendar", parentalKey: "calendar" },
   { label: "Library", view: "library", parentalKey: "library" },
+  { label: "Downloads", view: "downloads" },
   { label: "Addons", view: "addons", parentalKey: "addons" },
 ];
 
@@ -50,7 +52,11 @@ export function SideRail() {
   };
 
   const visible = (tabs: Tab[]) =>
-    tabs.filter((t) => !t.parentalKey || !locked || !hiddenTabs[t.parentalKey]);
+    tabs.filter(
+      (t) =>
+        (t.view !== "vod" || settings.showPlaylistsTab) &&
+        (!t.parentalKey || !locked || !hiddenTabs[t.parentalKey]),
+    );
 
   return (
     <>

@@ -7,10 +7,12 @@ export function EpisodeDownloadButton({
   meta,
   episode,
   size = 40,
+  variant = "row",
 }: {
   meta: Meta;
   episode?: PlayEpisode;
   size?: number;
+  variant?: "row" | "bar";
 }) {
   const { openPicker } = useView();
   useDownloads();
@@ -22,6 +24,8 @@ export function EpisodeDownloadButton({
   const persistent = downloading || done || failed;
   const ratio = dl?.ratio ?? 0;
   const pct = Math.round(ratio * 100);
+  const isBar = variant === "bar";
+  const dim = isBar ? 48 : size;
 
   const onClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -32,9 +36,24 @@ export function EpisodeDownloadButton({
     openPicker(meta, episode, { intent: "download" });
   };
 
-  const r = (size - 7) / 2;
+  const r = (dim - 7) / 2;
   const circ = 2 * Math.PI * r;
-  const stroke = size >= 38 ? 2.5 : 2.2;
+  const stroke = dim >= 38 ? 2.5 : 2.2;
+
+  const stateTone = done
+    ? "text-emerald-300"
+    : failed
+      ? isBar
+        ? "text-danger"
+        : "text-danger hover:bg-danger/10"
+      : isBar
+        ? "text-ink"
+        : "text-ink-subtle hover:bg-elevated hover:text-ink active:scale-90";
+  const wrapperClass = isBar
+    ? `group/dl relative flex shrink-0 items-center justify-center rounded-full border border-edge bg-canvas/80 transition-[transform,background-color,border-color] duration-200 hover:border-ink-subtle hover:bg-canvas/95 active:scale-[0.96] ${stateTone}`
+    : `group/dl relative flex shrink-0 items-center justify-center self-start rounded-full transition-[opacity,background-color,transform] duration-200 ease-out ${
+        persistent ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+      } ${stateTone}`;
 
   return (
     <button
@@ -58,30 +77,20 @@ export function EpisodeDownloadButton({
               ? "Download failed  ·  click to retry"
               : "Download for offline"
       }
-      className={`group/dl relative flex shrink-0 items-center justify-center self-start rounded-full transition-[opacity,background-color,transform] duration-200 ease-out ${
-        persistent
-          ? "opacity-100"
-          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-      } ${
-        done
-          ? "text-emerald-300"
-          : failed
-            ? "text-danger hover:bg-danger/10"
-            : "text-ink-subtle hover:bg-elevated hover:text-ink active:scale-90"
-      }`}
-      style={{ width: size, height: size }}
+      className={wrapperClass}
+      style={{ width: dim, height: dim }}
     >
       {downloading ? (
         <>
           <svg
-            width={size}
-            height={size}
-            viewBox={`0 0 ${size} ${size}`}
+            width={dim}
+            height={dim}
+            viewBox={`0 0 ${dim} ${dim}`}
             className="absolute inset-0 -rotate-90"
           >
             <circle
-              cx={size / 2}
-              cy={size / 2}
+              cx={dim / 2}
+              cy={dim / 2}
               r={r}
               fill="none"
               className="text-ink"
@@ -90,8 +99,8 @@ export function EpisodeDownloadButton({
               strokeWidth={stroke}
             />
             <circle
-              cx={size / 2}
-              cy={size / 2}
+              cx={dim / 2}
+              cy={dim / 2}
               r={r}
               fill="none"
               className="text-accent transition-[stroke-dashoffset] duration-500 ease-out"
@@ -106,17 +115,17 @@ export function EpisodeDownloadButton({
             {pct}
           </span>
           <X
-            size={size * 0.34}
+            size={dim * 0.34}
             strokeWidth={2.6}
             className="absolute text-ink opacity-0 transition-opacity duration-150 group-hover/dl:opacity-100"
           />
         </>
       ) : done ? (
-        <Check size={size * 0.46} strokeWidth={2.6} />
+        <Check size={dim * 0.46} strokeWidth={2.6} />
       ) : failed ? (
-        <RotateCw size={size * 0.42} strokeWidth={2.2} />
+        <RotateCw size={dim * 0.42} strokeWidth={2.2} />
       ) : (
-        <ArrowDownToLine size={size * 0.46} strokeWidth={2} />
+        <ArrowDownToLine size={dim * 0.46} strokeWidth={2} />
       )}
     </button>
   );

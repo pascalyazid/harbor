@@ -6,6 +6,7 @@ mod cast_server;
 mod cf_relay;
 mod discord_rp;
 mod dlna;
+mod download;
 mod dvr;
 mod fonts;
 mod fullscreen;
@@ -19,6 +20,8 @@ mod roku;
 #[cfg(target_os = "macos")]
 mod mpv_render_mac;
 mod pip;
+#[cfg(target_os = "macos")]
+mod pip_mac;
 mod airplay;
 mod stream_proxy;
 mod streams;
@@ -244,7 +247,8 @@ pub fn run() {
         .manage(dvr_state)
         .manage(multiview_state)
         .manage(modal_overlay_state)
-        .manage(discord_rp::DiscordState::new());
+        .manage(discord_rp::DiscordState::new())
+        .manage(download::DownloadState::new());
 
     #[cfg(target_os = "macos")]
     let app_builder = app_builder.register_uri_scheme_protocol("stremio", |ctx, request| {
@@ -338,6 +342,8 @@ pub fn run() {
             anime4k::anime4k_dir,
             proc_mem::harbor_process_memory,
             trailer::fetch_trailer,
+            download::download_start,
+            download::download_cancel,
             stream_proxy::proxy_register,
             stream_proxy::proxy_unregister,
             stream_proxy::proxy_gc_idle,

@@ -8,6 +8,7 @@ import {
   type ThemeSettings,
 } from "@/lib/theme";
 import { loadBgImage, saveBgImage } from "@/lib/theme-storage";
+import { languageName } from "@/lib/subtitles/language";
 
 export type StreamingService =
   | "netflix"
@@ -49,6 +50,8 @@ export type Settings = {
   showRtBadge: boolean;
   showMalBadge: boolean;
   showQualityBadge: boolean;
+  posterScale: number;
+  trailerQuality: "auto" | "360p" | "720p" | "1080p" | "best";
   badgePlacement: "top" | "bottom";
   episodeLayout: "list" | "strip";
   harborAvatar: string | null;
@@ -56,6 +59,7 @@ export type Settings = {
   anilistAutoSync: boolean;
   useAnilistAvatar: boolean;
   useTraktAvatar: boolean;
+  useSimklAvatar: boolean;
   traktClientId: string;
   traktClientSecret: string;
   traktAccessToken: string | null;
@@ -113,6 +117,13 @@ export type Settings = {
   jimakuToken: string;
   audioNormalize: boolean;
   bandwidthMbps: number;
+  nextEpisodeLeadSec: number;
+  showPlaylistsTab: boolean;
+  hideSpoilers: boolean;
+  spoilerHideThumbnails: boolean;
+  spoilerHideTitles: boolean;
+  spoilerHideDescriptions: boolean;
+  spoilerSkipNext: boolean;
   hideContent: ContentFilters;
   theme: ThemeSettings;
   homeMode: "harbor" | "classic";
@@ -160,7 +171,14 @@ export type Settings = {
       custom: boolean;
     };
   };
-  calendarSource: "library" | "all" | "trakt" | "anticipated" | "custom";
+  calendarSource:
+    | "library"
+    | "all"
+    | "trakt"
+    | "anticipated"
+    | "custom"
+    | "simkl"
+    | "simkl-anticipated";
   customCalendar: {
     trackedPeople: Array<{
       id: number;
@@ -228,6 +246,8 @@ const DEFAULT: Settings = {
   showRtBadge: true,
   showMalBadge: true,
   showQualityBadge: true,
+  posterScale: 1,
+  trailerQuality: "auto",
   badgePlacement: "bottom",
   episodeLayout: "list",
   harborAvatar: null,
@@ -235,6 +255,7 @@ const DEFAULT: Settings = {
   anilistAutoSync: true,
   useAnilistAvatar: false,
   useTraktAvatar: false,
+  useSimklAvatar: false,
   traktClientId: "",
   traktClientSecret: "",
   traktAccessToken: null,
@@ -279,8 +300,8 @@ const DEFAULT: Settings = {
   playerAnime4kMode: "A",
   playerAnime4kTier: "hq",
   playerAnime4kFolder: "",
-  preferredSubLangs: ["en"],
-  preferredAudioLangs: ["en", "ja"],
+  preferredSubLangs: ["English"],
+  preferredAudioLangs: ["English", "Japanese"],
   subFontSize: 32,
   subFontColor: "#FFFFFF",
   subBorderColor: "#000000",
@@ -301,6 +322,13 @@ const DEFAULT: Settings = {
   jimakuToken: "",
   audioNormalize: false,
   bandwidthMbps: 0,
+  nextEpisodeLeadSec: -1,
+  showPlaylistsTab: false,
+  hideSpoilers: false,
+  spoilerHideThumbnails: true,
+  spoilerHideTitles: true,
+  spoilerHideDescriptions: true,
+  spoilerSkipNext: true,
   hideContent: {
     anime: false,
     liveTv: false,
@@ -478,8 +506,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           ...DEFAULT.hideContent,
           ...(parsed.hideContent ?? {}),
         },
-        preferredSubLangs: parsed.preferredSubLangs ?? DEFAULT.preferredSubLangs,
-        preferredAudioLangs: parsed.preferredAudioLangs ?? DEFAULT.preferredAudioLangs,
+        preferredSubLangs: (parsed.preferredSubLangs ?? DEFAULT.preferredSubLangs).map(languageName),
+        preferredAudioLangs: (parsed.preferredAudioLangs ?? DEFAULT.preferredAudioLangs).map(
+          languageName,
+        ),
         castAlwaysTranscode: parsed.castAlwaysTranscode ?? DEFAULT.castAlwaysTranscode,
         showMalBadge: parsed.showMalBadge ?? DEFAULT.showMalBadge,
         badgePlacement:

@@ -17,10 +17,12 @@ import { BackdropLayer } from "./play-picker/backdrop-layer";
 import { CinematicLoader } from "./play-picker/cinematic-loader";
 import { DownloadStarted } from "./play-picker/download-started";
 import { DebridDownModal } from "./play-picker/debrid-down-modal";
+import { P2pConfirmModal } from "./play-picker/p2p-confirm-modal";
 import { EmptyState, FilteredOutState, NoSourcesState, TheatresEmptyState } from "./play-picker/empty-states";
 import { CachedFilterPill, LanguageFilterPill } from "./play-picker/filter-pills";
 import { NoSourcesConfiguredModal } from "./play-picker/no-sources-modal";
 import {
+  hasUncachedMarker,
   normalizeLangCode,
   streamMatchesLangs,
 } from "./play-picker/picker-utils";
@@ -135,7 +137,7 @@ export function PlayPicker({
 
   const isCached = useCallback(
     (s: ScoredStream) =>
-      (s.url != null && !s.infoHash) ||
+      (s.url != null && !s.infoHash && !hasUncachedMarker(s)) ||
       debrids.some((d) => s.cached[d.slug] === true || s.inLibrary[d.slug] === true),
     [debrids],
   );
@@ -159,9 +161,10 @@ export function PlayPicker({
       const cached = all.filter(isCached);
       if (cached.length > 0) all = cached;
     }
+    const cachedFirst = all.slice().sort((a, b) => (isCached(b) ? 1 : 0) - (isCached(a) ? 1 : 0));
     const byTier: Partial<Record<Tier, ScoredStream>> = {};
-    for (const s of all) if (!byTier[s.tier]) byTier[s.tier] = s;
-    const primaryCandidates = [result.picker.primary, ...all].filter(
+    for (const s of cachedFirst) if (!byTier[s.tier]) byTier[s.tier] = s;
+    const primaryCandidates = [result.picker.primary, ...cachedFirst].filter(
       (s): s is ScoredStream => s != null && all.includes(s),
     );
     const primary = primaryCandidates[0] ?? null;
@@ -240,12 +243,13 @@ export function PlayPicker({
     return filteredPicker.primary;
   }, [filteredPicker, selectedTier, previousMatch]);
 
-  const { onPlay, onCache, queuedHash, debridDown, resetDebridDown, abortResolve } = usePickHandler({
+  const { onPlay, onCache, queuedHash, debridDown, resetDebridDown, abortResolve, p2pConfirm, confirmP2p, cancelP2p } = usePickHandler({
     meta,
     imdbId,
     episode,
     attempt,
     debrids,
+    isCached,
     inSession,
     canInvite,
     inviteSentRef,
@@ -406,6 +410,17 @@ export function PlayPicker({
         meta={meta}
         onTryAgain={resetDebridDown}
         onBack={() => backToDetail()}
+      />
+    );
+  }
+
+  if (p2pConfirm) {
+    return (
+      <P2pConfirmModal
+        meta={meta}
+        stream={p2pConfirm.stream}
+        onConfirm={confirmP2p}
+        onCancel={cancelP2p}
       />
     );
   }

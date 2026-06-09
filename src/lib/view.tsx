@@ -4,7 +4,7 @@ import { profileFromMeta, trackEvent } from "./discover";
 import type { StreamingService } from "./settings";
 import { useTogether } from "./together/provider";
 
-export type View = "home" | "settings" | "anime" | "discover" | "addons" | "calendar" | "movies" | "shows" | "library" | "live" | "downloads";
+export type View = "home" | "settings" | "anime" | "discover" | "addons" | "calendar" | "movies" | "shows" | "library" | "live" | "vod" | "downloads";
 
 export type PlayEpisode = {
   season: number;
@@ -66,10 +66,12 @@ export type Frame =
   | { kind: "shows" }
   | { kind: "library" }
   | { kind: "live" }
+  | { kind: "vod" }
   | { kind: "downloads" }
   | { kind: "service"; service: StreamingService }
   | { kind: "meta"; meta: Meta; liveContext?: boolean }
   | { kind: "person"; id: number }
+  | { kind: "collection"; id: number }
   | { kind: "filter"; filter: MetaFilter }
   | { kind: "award"; awardType: import("./providers/wikidata").AwardType }
   | { kind: "anime-award"; sourceId: import("./anime-awards").AwardSourceId }
@@ -108,6 +110,8 @@ type ViewValue = {
   promoteMetaToRoot: () => void;
   personId: number | null;
   openPerson: (id: number | null) => void;
+  collectionId: number | null;
+  openCollection: (id: number) => void;
   openQueue: () => void;
   filter: MetaFilter | null;
   openFilter: (f: MetaFilter) => void;
@@ -180,6 +184,8 @@ function frameKey(f: Frame): string {
       return "library";
     case "live":
       return "live";
+    case "vod":
+      return "vod";
     case "downloads":
       return "downloads";
     case "service":
@@ -188,6 +194,8 @@ function frameKey(f: Frame): string {
       return `meta:${f.meta.id}`;
     case "person":
       return `person:${f.id}`;
+    case "collection":
+      return `collection:${f.id}`;
     case "filter":
       return `filter:${f.filter.kind}:${f.filter.mediaType}:${"name" in f.filter ? f.filter.name : f.filter.value}`;
     case "award":
@@ -265,6 +273,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       if (f.kind === "shows") return "shows";
       if (f.kind === "library") return "library";
       if (f.kind === "live") return "live";
+      if (f.kind === "vod") return "vod";
       if (f.kind === "downloads") return "downloads";
       if (f.kind === "home") return "home";
     }
@@ -276,6 +285,7 @@ export function ViewProvider({ children }: { children: ReactNode }) {
   const metaLiveContext =
     metaFrame && metaFrame.kind === "meta" ? metaFrame.liveContext === true : false;
   const personId = top.kind === "person" ? top.id : null;
+  const collectionId = top.kind === "collection" ? top.id : null;
   const filter = top.kind === "filter" ? top.filter : null;
   const awardType = top.kind === "award" ? top.awardType : null;
   const picker =
@@ -393,6 +403,11 @@ export function ViewProvider({ children }: { children: ReactNode }) {
         rowScrollMem.current.clear();
         return [{ kind: "live" }];
       }
+      if (v === "vod") {
+        scrollMem.current.clear();
+        rowScrollMem.current.clear();
+        return [{ kind: "vod" }];
+      }
       if (t.kind === "settings") return s;
       return pushFrame(s, { kind: "settings" });
     });
@@ -467,6 +482,14 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       const t = cur[cur.length - 1];
       if (t.kind === "queue") return cur;
       return pushFrame(cur, { kind: "queue" });
+    });
+  }, []);
+
+  const openCollection = useCallback((id: number) => {
+    setStack((cur) => {
+      const t = cur[cur.length - 1];
+      if (t.kind === "collection" && t.id === id) return cur;
+      return pushFrame(cur, { kind: "collection", id });
     });
   }, []);
 
@@ -588,6 +611,8 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       promoteMetaToRoot,
       personId,
       openPerson,
+      collectionId,
+      openCollection,
       openQueue,
       filter,
       openFilter,
@@ -627,6 +652,8 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       metaLiveContext,
       promoteMetaToRoot,
       personId,
+      collectionId,
+      openCollection,
       filter,
       awardType,
       homeResetTick,

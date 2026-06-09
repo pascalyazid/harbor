@@ -43,10 +43,20 @@ export function AvatarDock({
     syncState && !syncState.playing && syncState.updatedBy ? syncState.updatedBy : null;
   const alignRight = corner === "top-right" || corner === "bottom-right";
 
+  const attention = participants.some((p) => {
+    if (p.id === selfId) return false;
+    const lastSeen = presenceMap.get(p.id) ?? p.joinedAt;
+    const stale = now - lastSeen > ACTIVE_THRESHOLD_MS;
+    const loc = participantLocations.get(p.id);
+    const leftPlayer = !!loc && loc.kind !== "player";
+    return stale || leftPlayer || p.id === lastPauserId || !p.ready;
+  });
+  const surface = visible || attention;
+
   return (
     <div
-      className={`pointer-events-none fixed ${CORNER_POSITION[corner]} z-30 flex flex-col gap-2 transition-opacity duration-500 ${
-        visible ? "opacity-100" : "opacity-30"
+      className={`fixed ${CORNER_POSITION[corner]} z-30 flex flex-col gap-2 transition-opacity duration-500 ${
+        surface ? "pointer-events-none opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
       <div className={`flex flex-col gap-1.5 rounded-2xl border border-white/12 bg-black/35 px-2.5 py-2 backdrop-blur-xl shadow-[0_18px_50px_-22px_rgba(0,0,0,0.65)] ${alignRight ? "items-end" : "items-start"}`}>

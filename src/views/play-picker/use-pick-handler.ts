@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 
 import type { Meta } from "@/lib/cinemeta";
 import type { DebridStore } from "@/lib/debrid/types";
 import { markStreamDead, recordStubEvent, STUB_TTL_MS } from "@/lib/dead-streams";
+import { engineP2pEligible } from "@/lib/torrent/stremio-stream";
 import { preflightCheck } from "@/lib/streams/preflight";
 import { resolveStream } from "@/lib/streams/resolve";
 import { registerStreamProxy } from "@/lib/stream-proxy";
@@ -19,6 +20,7 @@ export function usePickHandler({
   episode,
   attempt,
   debrids,
+  isCached,
   inSession,
   canInvite,
   inviteSentRef,
@@ -42,6 +44,7 @@ export function usePickHandler({
   episode?: PlayEpisode;
   attempt?: number;
   debrids: DebridStore[];
+  isCached: (s: ScoredStream) => boolean;
   inSession: boolean;
   canInvite: boolean;
   inviteSentRef: React.MutableRefObject<string | null>;
@@ -62,6 +65,7 @@ export function usePickHandler({
 }) {
   const [queuedHash, setQueuedHash] = useState<string | null>(null);
   const [debridDown, setDebridDown] = useState(false);
+  const [p2pConfirm, setP2pConfirm] = useState<{ stream: ScoredStream } | null>(null);
   const debridFailStreakRef = useRef(0);
   const resolveAcRef = useRef<AbortController | null>(null);
 
@@ -196,6 +200,13 @@ export function usePickHandler({
     }
   };
 
+  const startResolve = (stream: ScoredStream, committed: boolean) => {
+    setResolveError(null);
+    setQueuedHash(null);
+    setResolving({ stream });
+    void resolveAndOpen(stream, committed);
+  };
+
   const onPlay = (stream: ScoredStream, committed = true) => {
     if (!stream.url && stream.externalUrl) {
       openUrl(stream.externalUrl);
@@ -205,11 +216,19 @@ export function usePickHandler({
       openUrl(`https://www.youtube.com/watch?v=${stream.ytId}`);
       return;
     }
-    setResolveError(null);
-    setQueuedHash(null);
-    setResolving({ stream });
-    void resolveAndOpen(stream, committed);
+    if (committed && !isCached(stream) && !stream.url && engineP2pEligible(stream)) {
+      setP2pConfirm({ stream });
+      return;
+    }
+    startResolve(stream, committed);
   };
+
+  const confirmP2p = () => {
+    const s = p2pConfirm?.stream;
+    setP2pConfirm(null);
+    if (s) startResolve(s, true);
+  };
+  const cancelP2p = () => setP2pConfirm(null);
 
   const onCache = async (stream: ScoredStream) => {
     setResolveError(null);
@@ -246,5 +265,5 @@ export function usePickHandler({
 
   const abortResolve = () => resolveAcRef.current?.abort();
 
-  return { onPlay, onCache, queuedHash, debridDown, resetDebridDown, abortResolve };
+  return { onPlay, onCache, queuedHash, debridDown, resetDebridDown, abortResolve, p2pConfirm, confirmP2p, cancelP2p };
 }

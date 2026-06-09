@@ -157,6 +157,7 @@ async function fetchOne(
       infoHash: s.infoHash?.toLowerCase(),
       addonId: addon.manifest.id,
       addonName: addon.manifest.name,
+      addonUrl: addon.transportUrl,
       addonRanked: ranked,
     }));
   } catch (e) {

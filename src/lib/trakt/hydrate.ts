@@ -59,10 +59,22 @@ async function hydrateOne(item: TraktItem, tmdbKey: string): Promise<Meta | null
   return skeleton;
 }
 
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    out.push(...(await Promise.all(items.slice(i, i + limit).map(fn))));
+  }
+  return out;
+}
+
 export async function hydrateTraktItems(
   items: TraktItem[],
   tmdbKey: string,
 ): Promise<Meta[]> {
-  const results = await Promise.all(items.map((it) => hydrateOne(it, tmdbKey)));
+  const results = await mapLimit(items, 6, (it) => hydrateOne(it, tmdbKey));
   return results.filter((m): m is Meta => m !== null && !!m.poster);
 }

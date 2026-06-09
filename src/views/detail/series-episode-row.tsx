@@ -6,6 +6,7 @@ import { formatAirDate } from "@/lib/dates";
 import { formatRelativeWatched } from "@/lib/episode-progress";
 import type { Episode } from "@/lib/providers/tmdb";
 import { useSettings } from "@/lib/settings";
+import { SPOILER_TEXT_CLASS, SPOILER_THUMB_CLASS, type SpoilerMask } from "@/lib/spoilers";
 import { useView } from "@/lib/view";
 import { NewBadge, UpcomingBadge } from "./badges";
 import { EpisodeDownloadButton } from "./episode-download-button";
@@ -16,12 +17,14 @@ export function EpisodeRow({
   ep,
   progress,
   cinemetaThumbnail,
+  spoiler,
   onContextMenu,
 }: {
   meta: Meta;
   ep: Episode;
   progress: { ratio: number; watched: boolean; startedAt: number };
   cinemetaThumbnail?: string;
+  spoiler?: SpoilerMask;
   onContextMenu?: (e: React.MouseEvent, season: number, episode: number, watched: boolean) => void;
 }) {
   const { openPicker } = useView();
@@ -63,12 +66,14 @@ export function EpisodeRow({
         className="flex min-w-0 flex-1 gap-6 text-left"
       >
         <div className="relative w-[200px] shrink-0 overflow-hidden rounded-lg">
-          <Poster
-            src={still}
-            seed={String(ep.id)}
-            ratio="landscape"
-            onError={() => setImgIdx((i) => i + 1)}
-          />
+          <div className={spoiler?.thumb ? SPOILER_THUMB_CLASS : undefined}>
+            <Poster
+              src={still}
+              seed={String(ep.id)}
+              ratio="landscape"
+              onError={() => setImgIdx((i) => i + 1)}
+            />
+          </div>
           <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-canvas">
               <Play size={18} fill="currentColor" />
@@ -93,7 +98,9 @@ export function EpisodeRow({
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <h4 className="flex items-center gap-2 truncate text-[16px] font-semibold text-ink">
-            <span className="truncate">{ep.name || `Episode ${ep.episodeNumber}`}</span>
+            <span className={`truncate ${spoiler?.title ? SPOILER_TEXT_CLASS : ""}`}>
+              {ep.name || `Episode ${ep.episodeNumber}`}
+            </span>
             {isUpcomingEpisode(ep) ? <UpcomingBadge /> : isNewEpisode(ep) && <NewBadge />}
           </h4>
           <p className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-subtle">
@@ -117,7 +124,13 @@ export function EpisodeRow({
             )}
           </p>
           {ep.overview && (
-            <p className="line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted">{ep.overview}</p>
+            <p
+              className={`line-clamp-2 text-[13.5px] leading-relaxed text-ink-muted ${
+                spoiler?.desc ? SPOILER_TEXT_CLASS : ""
+              }`}
+            >
+              {ep.overview}
+            </p>
           )}
         </div>
       </button>

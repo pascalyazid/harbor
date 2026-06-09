@@ -215,9 +215,9 @@ async function writeLibraryItem(
 
   const item: StremioLibraryItem = {
     _id: canonicalId,
-    name: src.meta.name ?? base?.name ?? src.title ?? "",
+    name: base?.name ?? src.meta.name ?? src.title ?? "",
     type: isSeries ? "series" : "movie",
-    poster: src.meta.poster ?? base?.poster ?? null,
+    poster: base?.poster ?? src.meta.poster ?? null,
     posterShape: pickPosterShape(baseRecord?.posterShape),
     removed: base?.removed === true,
     temp: base ? base.temp === true : true,

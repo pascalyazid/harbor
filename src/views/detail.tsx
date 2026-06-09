@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Play, Plus } from "lucide-react";
+import { Check, Play, Plus, Star } from "lucide-react";
 import { animeDetails, franchiseTags, type FranchiseEntry } from "@/lib/providers/anime-detail";
 import { imdbToKitsu } from "@/lib/providers/anime-mapping";
 import { stripFranchiseSuffix } from "@/lib/providers/jikan";
@@ -33,11 +33,15 @@ import { decodeWatchedEpisodes } from "@/lib/stremio-watched";
 import { useTogether } from "@/lib/together/provider";
 import { useTrakt } from "@/lib/trakt/provider";
 import { toggleWatchlist, useInWatchlist } from "@/lib/watchlist";
+import { useIsFavorite, useMediaFavorites } from "@/lib/media-favorites";
 import { openUrl } from "@/lib/window";
 import { profileFromDetail, trackEvent } from "@/lib/discover";
 import { MOVIE_GENRES, TV_GENRES } from "@/lib/feed/tags";
 import { useScrollMemory, useView } from "@/lib/view";
 import { AddToAnilistButton } from "./detail/add-to-anilist-button";
+import { AddToSimklButton } from "./detail/add-to-simkl-button";
+import { CollectionRow } from "./detail/collection-row";
+import { EpisodeDownloadButton } from "./detail/episode-download-button";
 import { isTitleUpcoming } from "./detail/helpers";
 import { HeroAwardsCorner } from "./detail/hero-awards";
 import { CrunchyrollAwardsCorner } from "./detail/crunchyroll-corner";
@@ -94,6 +98,8 @@ export function DetailView({ meta, liveContext = false }: { meta: Meta; liveCont
   const { snapshot: roomSnapshot, claimHost } = useTogether();
   const { isConnected: traktConnected } = useTrakt();
   const inWatchlist = useInWatchlist(meta.id, [detail?.imdbId]);
+  const { toggle: toggleFavorite } = useMediaFavorites();
+  const isFav = useIsFavorite(meta.id, [detail?.imdbId]);
   const inSession = roomSnapshot.state === "joined" && roomSnapshot.participants.length >= 2;
   useScrollMemory(`meta:${meta.id}`, scrollRef);
   const idAnime = meta.id.startsWith("kitsu:") || meta.id.startsWith("mal:");
@@ -493,7 +499,7 @@ export function DetailView({ meta, liveContext = false }: { meta: Meta; liveCont
                     {year}
                   </Pill>
                 )}
-                {settings.showImdbBadge && rating && (
+                {rating && (
                   <Pill
                     onClick={() => {
                       const id = detail?.imdbId ?? (meta.id.startsWith("tt") ? meta.id : null);
@@ -622,6 +628,33 @@ export function DetailView({ meta, liveContext = false }: { meta: Meta; liveCont
                     title={title || meta.name}
                   />
                 )}
+                {!isAnime && (
+                  <AddToSimklButton
+                    harborId={meta.id}
+                    title={title || meta.name}
+                    type={meta.type === "movie" ? "movie" : "series"}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleFavorite({
+                      id: meta.id,
+                      type: meta.type,
+                      name: title || meta.name,
+                      poster: meta.poster ?? detail?.poster,
+                    })
+                  }
+                  aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                  title={isFav ? "Favorited" : "Favorite"}
+                  className={`group flex h-12 w-12 items-center justify-center rounded-full border transition-[transform,background-color,border-color] duration-200 active:scale-[0.94] ${
+                    isFav
+                      ? "border-accent/55 bg-accent/15 text-accent hover:bg-accent/22"
+                      : "border-edge bg-canvas/80 text-ink hover:border-ink-subtle hover:bg-canvas/95"
+                  }`}
+                >
+                  <Star size={20} strokeWidth={isFav ? 0 : 1.9} fill={isFav ? "currentColor" : "none"} />
+                </button>
                 {trailerCandidate && (
                   <button
                     type="button"
@@ -633,6 +666,7 @@ export function DetailView({ meta, liveContext = false }: { meta: Meta; liveCont
                     <PreviewIcon size={20} />
                   </button>
                 )}
+                {meta.type === "movie" && <EpisodeDownloadButton meta={meta} variant="bar" />}
                 {liveContext && (
                   <button
                     type="button"
@@ -748,6 +782,12 @@ export function DetailView({ meta, liveContext = false }: { meta: Meta; liveCont
                 <CastCard key={`${c.id}-${i}`} cast={c} />
               ))}
             </Row>
+          </LazyMount>
+        )}
+
+        {detail?.collection && (
+          <LazyMount minHeight={280}>
+            <CollectionRow collection={detail.collection} currentId={meta.id} />
           </LazyMount>
         )}
 

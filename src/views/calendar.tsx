@@ -2,25 +2,19 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Star } from "lucid
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyCalendarFilter,
-  fetchCalendarRange,
-  fetchCustomCalendar,
   groupByDate,
-  monthRangeISO,
   todayLocalISO,
   type CalendarFilter,
   type CalendarItem,
 } from "@/lib/calendar";
 import { CalendarSkeleton } from "./calendar/calendar-skeleton";
 import { CustomCalendarBar } from "./calendar/custom-bar";
-import {
-  fetchAnticipatedCalendar,
-  fetchLibraryCalendar,
-  fetchTraktCalendar,
-} from "@/lib/calendar-sources";
+import { useCalendarData } from "./calendar/use-calendar-data";
 import { useAuth } from "@/lib/auth";
 import { library, type LibraryItem } from "@/lib/stremio";
 import { useSettings } from "@/lib/settings";
 import { useTrakt } from "@/lib/trakt/provider";
+import { useSimkl } from "@/lib/simkl/provider";
 import { useScrollMemory, useView } from "@/lib/view";
 import { AuthModal } from "@/components/auth-modal";
 import { DayModal } from "./calendar/day-modal";
@@ -46,152 +40,24 @@ export function CalendarView() {
   const [month, setMonth] = useState(today.getMonth());
   const [filter, setFilter] = useState<CalendarFilter>("all");
   const [watchlistOnly, setWatchlistOnly] = useState(false);
-  const [items, setItems] = useState<CalendarItem[]>([]);
-  const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   useScrollMemory("calendar", scrollRef);
-  const [error, setError] = useState<string | null>(null);
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>([]);
   const [dayModal, setDayModal] = useState<string | null>(null);
 
   const source = settings.calendarSource;
   const { isConnected: traktConnected } = useTrakt();
+  const { isConnected: simklConnected } = useSimkl();
 
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    if (source === "library") {
-      if (!authKey) {
-        setItems([]);
-        return;
-      }
-      setLoading(true);
-      fetchLibraryCalendar(authKey, year, month)
-        .then((rows) => {
-          if (!cancelled) setItems(rows);
-        })
-        .catch((e) => {
-          if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    if (source === "trakt") {
-      if (!traktConnected) {
-        setItems([]);
-        return;
-      }
-      setLoading(true);
-      fetchTraktCalendar(year, month)
-        .then((rows) => {
-          if (!cancelled) setItems(rows);
-        })
-        .catch((e) => {
-          if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    if (source === "anticipated") {
-      setLoading(true);
-      fetchAnticipatedCalendar(year, month)
-        .then((rows) => {
-          if (!cancelled) setItems(rows);
-        })
-        .catch((e) => {
-          if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    if (source === "custom") {
-      if (!settings.tmdbKey) {
-        setItems([]);
-        return;
-      }
-      setLoading(true);
-      const { start, end } = monthRangeISO(year, month);
-      const extras: Promise<CalendarItem[]>[] = [];
-      if (settings.customCalendar.includeTraktAnticipated) {
-        extras.push(fetchAnticipatedCalendar(year, month).catch(() => []));
-      }
-      if (settings.customCalendar.includeTraktWatchlist && traktConnected) {
-        extras.push(fetchTraktCalendar(year, month).catch(() => []));
-      }
-      Promise.all(extras)
-        .then((batches) => batches.flat())
-        .then((extra) =>
-          fetchCustomCalendar({
-            apiKey: settings.tmdbKey,
-            region: settings.region,
-            filters: {
-              trackedPeople: settings.customCalendar.trackedPeople,
-              genres: settings.customCalendar.genres,
-              watchProviders: settings.customCalendar.watchProviders,
-              originCountries: settings.customCalendar.originCountries,
-              mediaTypes: settings.customCalendar.mediaTypes,
-            },
-            start,
-            end,
-            extra,
-          }),
-        )
-        .then((rows) => {
-          if (!cancelled) setItems(rows);
-        })
-        .catch((e) => {
-          if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    if (!settings.tmdbKey) {
-      setItems([]);
-      return;
-    }
-    setLoading(true);
-    const { start, end } = monthRangeISO(year, month);
-    fetchCalendarRange(settings.tmdbKey, start, end, settings.region)
-      .then((rows) => {
-        if (!cancelled) setItems(rows);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
+  const { items, loading, error } = useCalendarData({
     source,
     authKey,
     traktConnected,
-    settings.tmdbKey,
-    settings.region,
-    settings.customCalendar.trackedPeople,
-    settings.customCalendar.includeTraktAnticipated,
-    settings.customCalendar.includeTraktWatchlist,
+    simklConnected,
+    settings,
     year,
     month,
-  ]);
+  });
 
   useEffect(() => {
     if (!authKey || source !== "all") {
@@ -326,6 +192,7 @@ export function CalendarView() {
             value={source}
             onChange={(s) => update({ calendarSource: s })}
             traktConnected={traktConnected}
+            simklConnected={simklConnected}
           />
           {source === "custom" && (
             <CustomCalendarBar

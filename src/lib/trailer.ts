@@ -11,7 +11,8 @@ export type TrailerInfo = {
   size_bytes: number;
 };
 
-export type Quality = "low" | "high";
+export type Quality = "360p" | "720p" | "1080p" | "best";
+export type TrailerQualityPref = "auto" | Quality;
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const TIMEOUT_MS = 90000;
@@ -33,11 +34,15 @@ function connection(): Conn | undefined {
 
 export function getQualityHint(): Quality {
   const conn = connection();
-  if (!conn) return "high";
-  if (conn.saveData) return "low";
-  if (conn.effectiveType && /^(slow-2g|2g|3g)$/i.test(conn.effectiveType)) return "low";
-  if (typeof conn.downlink === "number" && conn.downlink < 5) return "low";
-  return "high";
+  if (!conn) return "720p";
+  if (conn.saveData) return "360p";
+  if (conn.effectiveType && /^(slow-2g|2g|3g)$/i.test(conn.effectiveType)) return "360p";
+  if (typeof conn.downlink === "number" && conn.downlink < 5) return "360p";
+  return "720p";
+}
+
+export function resolveTrailerQuality(pref: TrailerQualityPref): Quality {
+  return pref === "auto" ? getQualityHint() : pref;
 }
 
 export function shouldPrefetch(): boolean {
@@ -89,7 +94,7 @@ function drainPrefetch() {
   });
 }
 
-export function prefetchTrailer(videoId: string, quality: Quality = "low"): void {
+export function prefetchTrailer(videoId: string, quality: Quality = "360p"): void {
   if (!isTauri || !videoId) return;
   if (!shouldPrefetch()) return;
   const key = cacheKey(videoId, quality);

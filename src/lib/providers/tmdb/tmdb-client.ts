@@ -49,16 +49,19 @@ async function tmdbHttpFetch(url: string): Promise<Response> {
   return await fetch(url, init);
 }
 
-async function fetchTmdbOnce<T>(url: string, path: string): Promise<T | null> {
+async function fetchTmdbOnce<T>(
+  url: string,
+  path: string,
+): Promise<{ status: number; data: T | null }> {
   const res = await tmdbHttpFetch(url);
   if (!res.ok) {
     const body = await readJsonBody(res, path).catch(() => "");
     logTmdbFailure(path, res.status, body);
-    return null;
+    return { status: res.status, data: null };
   }
   const text = await readJsonBody(res, path);
   try {
-    return JSON.parse(text) as T;
+    return { status: 200, data: JSON.parse(text) as T };
   } catch (e) {
     const preview = JSON.stringify(text.slice(0, 200));
     console.warn(`[tmdb] parse failure on ${path} (len=${text.length}, starts=${preview})`, e);
@@ -76,20 +79,23 @@ export async function get<T>(
   url.searchParams.set("api_key", key);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   const target = url.toString();
-  try {
-    return await fetchTmdbOnce<T>(target, path);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (msg !== "tmdb-parse-failure") {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      const { status, data } = await fetchTmdbOnce<T>(target, path);
+      if (status === 429 || (status >= 500 && status < 600)) {
+        await new Promise((r) => setTimeout(r, Math.min(2000, 250 * 2 ** attempt)));
+        continue;
+      }
+      return data;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg === "tmdb-parse-failure") {
+        await new Promise((r) => setTimeout(r, 400));
+        continue;
+      }
       console.warn(`[tmdb] network error on ${path}`, e);
       return null;
     }
   }
-  await new Promise((r) => setTimeout(r, 400));
-  try {
-    return await fetchTmdbOnce<T>(target, path);
-  } catch {
-    console.warn(`[tmdb] parse retry also failed for ${path} — giving up`);
-    return null;
-  }
+  return null;
 }

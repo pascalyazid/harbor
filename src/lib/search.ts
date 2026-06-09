@@ -3,6 +3,7 @@ import { movieMeta, seriesMeta, type Page, type RawMovie, type RawSeries } from 
 import { MOVIE_GENRES, TV_GENRES } from "@/lib/feed/tags";
 import type { Meta } from "@/lib/cinemeta";
 import type { AddonResultGroup } from "@/lib/search-addons";
+import type { AddonHit } from "@/lib/search-addon-index";
 import { getCachedPlaylist } from "@/lib/iptv/store";
 import type { Settings } from "@/lib/settings";
 import { safeFetch } from "@/lib/safe-fetch";
@@ -59,6 +60,7 @@ export type SearchResults = {
   liveTv: LiveTvHit[];
   anime: AnimeHit[];
   addonGroups: AddonResultGroup[];
+  addons: AddonHit[];
   intent: SearchIntent;
 };
 
@@ -160,10 +162,10 @@ export async function searchAll(
 ): Promise<SearchResults> {
   const trimmed = query.trim();
   if (!trimmed) {
-    return { query: "", topMatch: null, people: [], movies: [], series: [], liveTv: [], anime: [], addonGroups: [], intent: null };
+    return { query: "", topMatch: null, people: [], movies: [], series: [], liveTv: [], anime: [], addonGroups: [], addons: [], intent: null };
   }
   if (!key) {
-    return { query: trimmed, topMatch: null, people: [], movies: [], series: [], liveTv: [], anime: [], addonGroups: [], intent: detectIntent(trimmed) };
+    return { query: trimmed, topMatch: null, people: [], movies: [], series: [], liveTv: [], anime: [], addonGroups: [], addons: [], intent: detectIntent(trimmed) };
   }
 
   const data = await get<Page<MultiItem>>(key, "search/multi", {
@@ -251,6 +253,7 @@ export async function searchAll(
     liveTv: [],
     anime: [],
     addonGroups: [],
+    addons: [],
     intent: detectIntent(trimmed),
   };
 }

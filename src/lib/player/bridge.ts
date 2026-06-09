@@ -63,6 +63,7 @@ export type PlayerBridge = {
   setRate: (r: number) => void;
   setAudioTrack: (id: string) => void;
   setSubtitleTrack: (id: string | null) => void;
+  setSubVisible: (on: boolean) => void;
   setSubDelay: (sec: number) => void;
   setAudioDelay: (sec: number) => void;
   addSubtitle: (url: string, lang?: string, title?: string, select?: boolean) => Promise<boolean>;

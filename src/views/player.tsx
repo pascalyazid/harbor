@@ -37,7 +37,7 @@ import { LiveChannelOverlay } from "@/components/player/live-channel-overlay/ove
 import { LiveChannelDvr } from "@/components/player/live-channel-dvr";
 import { StreamCheckPill } from "@/components/player/stream-check-pill";
 import { isLocalUrl } from "@/lib/player/local-url";
-import { isMacDesktop } from "@/lib/platform";
+import { isMacDesktop, isLinuxDesktop } from "@/lib/platform";
 import {
   checkStreamCompat,
   getDeviceCaps,
@@ -45,7 +45,8 @@ import {
   pickTranscodeProfile,
   type DeviceCaps,
 } from "@/lib/cast/device-caps";
-import { peekPickerCache } from "@/lib/picker-cache";
+import { peekPickerCache, clearOnePickerCache } from "@/lib/picker-cache";
+import { MAX_AUTORETRY_ATTEMPTS } from "./player/player-utils";
 import { resolveStream } from "@/lib/streams/resolve";
 import { registerStreamProxy } from "@/lib/stream-proxy";
 import type { ScoredStream } from "@/lib/streams/types";
@@ -167,7 +168,10 @@ import { useTrackAutoload } from "./player/hooks/use-track-autoload";
 import { useTrickplay } from "./player/hooks/use-trickplay";
 import { usePauseOnInactive } from "./player/hooks/use-pause-on-inactive";
 import { applySubStyle } from "@/lib/player/sub-style";
+import { isAssTrack } from "@/lib/player/sub-format";
+import { clearImportedSubs } from "@/lib/player/imported-subs";
 import { useTraktScrobble } from "@/lib/trakt/scrobble-hook";
+import { useSimklScrobble } from "@/lib/simkl/scrobble-hook";
 import { useVideoDownload } from "./player/hooks/use-video-download";
 import { setPlayerActions } from "@/lib/player-actions";
 import { useRoomSync } from "./player/hooks/use-room-sync";
@@ -526,11 +530,15 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
   });
 
   useTrickplay({ src, enabled: settings.seekPreviewEnabled });
+  const subEmbed = engine === "mpv" && settings.playerMpvEmbed && !isLinuxDesktop();
+  const selectedSubTrack = snap.subtitleTracks.find((t) => t.selected) ?? null;
+  const subAssNative = subEmbed && isAssTrack(selectedSubTrack);
   useEffect(() => {
     if (engine !== "mpv") return;
-    void applySubStyle(settings);
+    void applySubStyle(settings, subAssNative);
   }, [
     engine,
+    subAssNative,
     settings.subFontSize,
     settings.subFontColor,
     settings.subBorderColor,
@@ -542,6 +550,13 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     settings.subFontFamily,
     settings.subLineSpacing,
   ]);
+  useEffect(() => {
+    if (!subEmbed) return;
+    bridgeRef.current?.setSubVisible(subAssNative);
+  }, [subEmbed, subAssNative, selectedSubTrack?.id]);
+  useEffect(() => {
+    clearImportedSubs();
+  }, [src.meta.id]);
   const { captureExitSnapshot } = useExitSnapshot({
     src,
     engine,
@@ -553,6 +568,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
   });
 
   useTraktScrobble({ src, snap });
+  useSimklScrobble({ src, snap });
   const download = useVideoDownload({ url: src.url, meta: src.meta, episode: src.episode });
 
   useEffect(() => {
@@ -665,6 +681,24 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     exitPlayback();
   }, [captureExitSnapshot, exitPlayback, src.meta.id, season, episode, inRoom, isHost, notifyHostLeaving, clearInvite, publishState, exitPip, liveStreamRef, liveUrl, src.url, stopCast, castActiveRef]);
 
+  const onStubEject = useCallback(() => {
+    const nextAttempt = (src.attempt ?? 0) + 1;
+    if (bridgeRef.current) {
+      bridgeRef.current.destroy();
+      bridgeRef.current = null;
+    }
+    if (nextAttempt > MAX_AUTORETRY_ATTEMPTS) {
+      void closePlayer();
+      return;
+    }
+    if (nextAttempt >= 2) clearOnePickerCache(src.meta, src.episode);
+    openPicker(
+      src.meta,
+      src.episode,
+      settings.instantPlay || inRoom ? { autoPlay: true, attempt: nextAttempt } : { autoPlay: false },
+    );
+  }, [src.attempt, src.meta, src.episode, openPicker, settings.instantPlay, inRoom, closePlayer]);
+
   useKeyboardShortcuts({
     bridgeRef,
     snap,
@@ -712,7 +746,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     }
   };
 
-  const { inRoomRef, isHostRef, expectedRoomPlayingRef } = useRoomSync({
+  const { inRoomRef, isHostRef } = useRoomSync({
     inRoom,
     isHost,
     canPublish,
@@ -783,7 +817,6 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     }
     const b = bridgeRef.current;
     if (!b) return;
-    expectedRoomPlayingRef.current = null;
     if (snap.status === "playing") b.pause();
     else b.play().catch(() => {});
   };
@@ -801,7 +834,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
     bridgeRef.current?.seek(pos + delta);
   };
 
-  useStubDetection({ src, snap, closePlayer });
+  useStubDetection({ src, snap, onStub: onStubEject });
 
   useAutoEndExit({
     src,
@@ -902,7 +935,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
           playPauseToggle();
         }}
       />
-      {(!pipMode || settings.subShowInPip) && (
+      {(!pipMode || settings.subShowInPip) && !subAssNative && (
         <SubtitleOverlay text={snap.subText} startSec={snap.subStartSec} scale={pipMode ? 0.45 : 1} />
       )}
       {showStats && !pipMode && <StatsOverlay snap={snap} engine={engine} />}
@@ -1129,6 +1162,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
         />
       )}
 
+      {!loaderActive && (
       <ActiveShell
         snap={shellSnap}
         engine={engine}
@@ -1206,7 +1240,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
         }}
         onToggleHideOthers={() => setHideOthersDrawings((h) => !h)}
         onPickAnother={pickAnotherOrGuide}
-        canPickAnother={!inRoom || isHost}
+        canPickAnother={!liveOverlay.isLive || !inRoom || isHost}
         title={src.title}
         subtitle={src.subtitle}
         hoverTitle={src.meta.name}
@@ -1234,6 +1268,7 @@ export function PlayerView({ src }: { src: PlayerSrc }) {
         onOpenDvr={liveOverlay.isLive ? () => setDvrOpen(true) : undefined}
         sleep={sleep}
       />
+      )}
 
       {inRoom && !pipMode && (
         <AvatarDock

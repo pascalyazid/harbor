@@ -30,15 +30,6 @@ pub async fn window_fullscreen_enter(
         if main.is_maximized().unwrap_or(false) {
             let _ = main.unmaximize();
         }
-        if let Ok(Some(mon)) = main.current_monitor() {
-            let pos = mon.position();
-            let size = mon.size();
-            let _ = main.set_position(tauri::PhysicalPosition { x: pos.x, y: pos.y });
-            let _ = main.set_size(tauri::PhysicalSize {
-                width: size.width,
-                height: size.height,
-            });
-        }
         main.set_fullscreen(true)
             .map_err(|e| format!("set_fullscreen(true): {}", e))?;
     }

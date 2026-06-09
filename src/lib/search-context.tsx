@@ -3,6 +3,7 @@ import { MOVIE_GENRES } from "@/lib/feed/tags";
 import { useParental } from "@/lib/parental";
 import { searchAll, searchAnime, searchCinemeta, searchLiveTvChannels, type SearchResults } from "@/lib/search";
 import { searchAddonCatalogs, searchAddonGroups, mergeMetas } from "@/lib/search-addons";
+import { searchAddonIndex } from "@/lib/search-addon-index";
 import { gatherCatalogAddons, type Addon } from "@/lib/addons";
 import { useAuth } from "@/lib/auth";
 import { useSettings } from "@/lib/settings";
@@ -112,6 +113,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
             liveTv,
             anime,
             addonGroups: dedupedGroups,
+            addons: searchAddonIndex(trimmed),
           });
           setStatus("done");
         })

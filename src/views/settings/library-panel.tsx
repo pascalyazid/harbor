@@ -78,6 +78,49 @@ export function LibraryPanel({
           value={settings.libraryBookmarkedOnly}
           onChange={(v) => update({ libraryBookmarkedOnly: v })}
         />
+        <ToggleRow
+          label="Show Playlists tab"
+          sub="Adds a Playlists item to the navigation for browsing movies and shows from your M3U or Xtream playlists (the same ones you add for Live TV). Off by default to keep the nav tidy."
+          value={settings.showPlaylistsTab}
+          onChange={(v) => update({ showPlaylistsTab: v })}
+        />
+      </Section>
+
+      <Section
+        title="Spoilers"
+        subtitle="Blur episode artwork, titles, and descriptions for episodes you have not watched yet, on both shows and anime. Hover an episode to peek."
+      >
+        <ToggleRow
+          label="Blur spoilers"
+          sub="Hides spoiler-prone episode details in episode lists until you have watched them."
+          value={settings.hideSpoilers}
+          onChange={(v) => update({ hideSpoilers: v })}
+        />
+        {settings.hideSpoilers && (
+          <div className="ml-3 flex flex-col gap-1 border-l border-edge-soft/50 pl-4">
+            <ToggleRow
+              label="Blur thumbnails"
+              value={settings.spoilerHideThumbnails}
+              onChange={(v) => update({ spoilerHideThumbnails: v })}
+            />
+            <ToggleRow
+              label="Blur titles"
+              value={settings.spoilerHideTitles}
+              onChange={(v) => update({ spoilerHideTitles: v })}
+            />
+            <ToggleRow
+              label="Blur descriptions"
+              value={settings.spoilerHideDescriptions}
+              onChange={(v) => update({ spoilerHideDescriptions: v })}
+            />
+            <ToggleRow
+              label="Keep the next episode visible"
+              sub="Leave the episode you are up to clear and only blur the ones after it."
+              value={settings.spoilerSkipNext}
+              onChange={(v) => update({ spoilerSkipNext: v })}
+            />
+          </div>
+        )}
       </Section>
 
       <Section

@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useSettings } from "@/lib/settings";
 import { useView } from "@/lib/view";
 
 const GAP = 20;
@@ -101,6 +102,7 @@ export function Row({
   min = 144,
   shape = "portrait",
   scrollKey,
+  arrowsAlways = false,
   children,
   onEndReached,
 }: {
@@ -109,10 +111,13 @@ export function Row({
   min?: number;
   shape?: RowShape;
   alwaysActive?: boolean;
+  arrowsAlways?: boolean;
   scrollKey?: string;
   children: React.ReactNode;
   onEndReached?: () => void;
 }) {
+  const { settings } = useSettings();
+  const effMin = Math.max(72, Math.round(min * settings.posterScale));
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [trackEl, setTrackEl] = useState<HTMLDivElement | null>(null);
@@ -133,7 +138,7 @@ export function Row({
     if (!container) return;
     const available = container.clientWidth;
     if (available <= 0) return;
-    const fits = Math.max(1, Math.floor((available + GAP) / (min + GAP)));
+    const fits = Math.max(1, Math.floor((available + GAP) / (effMin + GAP)));
     setCellWidth((available - (fits - 1) * GAP) / fits);
   };
 
@@ -165,7 +170,7 @@ export function Row({
     if (!userInteractedRef.current && trackEl.scrollLeft !== 0) {
       trackEl.scrollLeft = 0;
     }
-  }, [children, childCount, cellWidth, trackEl, scrollKey, recallRowScroll]);
+  }, [children, childCount, cellWidth, trackEl, scrollKey, recallRowScroll, effMin]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -314,7 +319,7 @@ export function Row({
     const v = d.vel;
     const projection = -((v * Math.abs(v)) / (2 * friction));
     const projected = el.scrollLeft + projection;
-    const stride = (cellWidth ?? min) + GAP;
+    const stride = (cellWidth ?? effMin) + GAP;
     const max = el.scrollWidth - el.clientWidth;
     const targetIdx = Math.round(projected / stride);
     const target = Math.max(0, Math.min(targetIdx * stride, max));
@@ -368,7 +373,7 @@ export function Row({
             onClickCapture={onClickCapture}
             onDragStart={(e) => e.preventDefault()}
             className="grid grid-flow-col gap-5 overflow-x-auto p-5 -m-5 scroll-pl-5 scroll-pr-5 [scroll-snap-type:x_mandatory] [&>*]:[scroll-snap-align:start] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] [overflow-anchor:none] [&_img]:select-none [&_img]:[-webkit-user-drag:none] [will-change:transform]"
-            style={{ gridAutoColumns: cellWidth != null ? `${cellWidth}px` : `${min}px` }}
+            style={{ gridAutoColumns: cellWidth != null ? `${cellWidth}px` : `${effMin}px` }}
           >
             {Children.map(children, (child, i) => {
               const span = isValidElement(child)
@@ -382,8 +387,8 @@ export function Row({
             })}
           </div>
         </RowTrackContext.Provider>
-        <EdgeArrow side="left" visible={canPrev} onClick={() => scroll(-1)} />
-        <EdgeArrow side="right" visible={canNext} onClick={() => scroll(1)} />
+        <EdgeArrow side="left" visible={canPrev} always={arrowsAlways} onClick={() => scroll(-1)} />
+        <EdgeArrow side="right" visible={canNext} always={arrowsAlways} onClick={() => scroll(1)} />
       </div>
     </div>
   );
@@ -392,12 +397,34 @@ export function Row({
 function EdgeArrow({
   side,
   visible,
+  always = false,
   onClick,
 }: {
   side: "left" | "right";
   visible: boolean;
+  always?: boolean;
   onClick: () => void;
 }) {
+  if (always) {
+    return (
+      <div
+        className={`pointer-events-none absolute inset-y-0 z-30 flex w-16 items-center from-canvas/75 to-transparent transition-opacity duration-200 ${
+          side === "left" ? "left-0 justify-start bg-gradient-to-r" : "right-0 justify-end bg-gradient-to-l"
+        } ${visible ? "opacity-100" : "opacity-0"}`}
+      >
+        <button
+          onClick={onClick}
+          aria-label={`Scroll ${side}`}
+          tabIndex={visible ? 0 : -1}
+          className={`mx-1 flex h-12 w-12 items-center justify-center rounded-full border border-edge-soft/50 bg-canvas/90 text-ink shadow-[0_6px_20px_-6px_rgba(0,0,0,0.6)] backdrop-blur-md transition-transform duration-150 hover:scale-110 active:scale-95 ${
+            visible ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
+          {side === "left" ? <ChevronLeft size={22} strokeWidth={2.2} /> : <ChevronRight size={22} strokeWidth={2.2} />}
+        </button>
+      </div>
+    );
+  }
   const sideClass =
     side === "left"
       ? "right-full pr-3 justify-end"
@@ -417,9 +444,7 @@ function EdgeArrow({
         aria-label={`Scroll ${side}`}
         tabIndex={visible ? 0 : -1}
         className={`flex h-[50%] w-7 items-center justify-center rounded-lg border border-edge-soft/40 bg-canvas/95 text-ink-muted ${shadowClass} transition-opacity duration-200 hover:text-ink ${
-          visible
-            ? "opacity-0 group-hover/row:opacity-100"
-            : "pointer-events-none opacity-0"
+          visible ? "opacity-0 group-hover/row:opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
         {side === "left" ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}

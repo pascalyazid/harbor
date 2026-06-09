@@ -12,6 +12,7 @@ export function FloatingBack({
   if (!canGoBack || chromeHidden) return null;
   const deep =
     topKind === "meta" ||
+    topKind === "collection" ||
     topKind === "person" ||
     topKind === "filter" ||
     topKind === "award" ||

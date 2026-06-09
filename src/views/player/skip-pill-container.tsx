@@ -2,7 +2,14 @@ import { useMemo } from "react";
 import { usePlaybackPosition } from "@/lib/player/playback-clock";
 import { SkipPill } from "@/components/player/skip-pill";
 import { activeSegment, type SkipSegment } from "@/lib/skip-intro";
+import { useSettings } from "@/lib/settings";
 import type { PlayEpisode } from "@/lib/view";
+
+function nextEpisodeLead(setting: number, durationSec: number): number {
+  if (setting === 0) return 0;
+  if (setting > 0) return setting;
+  return Math.min(45, Math.max(15, Math.round(durationSec * 0.04)));
+}
 
 export function SkipPillContainer({
   skipSegments,
@@ -25,23 +32,26 @@ export function SkipPillContainer({
   onNextEpisode: () => void;
   onCancelAutoNext: () => void;
 }) {
+  const { settings } = useSettings();
   const positionSec = usePlaybackPosition();
   const realActiveSkip = activeSegment(skipSegments, positionSec);
+  const leadSec = nextEpisodeLead(settings.nextEpisodeLeadSec, durationSec);
   const syntheticOutro = useMemo(() => {
     if (realActiveSkip) return null;
     if (!hasNextEpisode) return null;
     if (durationSec <= 0) return null;
+    if (leadSec <= 0) return null;
     const remaining = durationSec - positionSec;
-    if (remaining > 90 || remaining < 0.5) return null;
+    if (remaining > leadSec || remaining < 0.5) return null;
     const hasRealOutro = skipSegments.some((s) => s.kind === "outro");
     if (hasRealOutro) return null;
     return {
       kind: "outro" as const,
-      startSec: Math.max(0, durationSec - 90),
+      startSec: Math.max(0, durationSec - leadSec),
       endSec: durationSec,
       source: "chapters" as const,
     };
-  }, [realActiveSkip, hasNextEpisode, durationSec, positionSec, skipSegments]);
+  }, [realActiveSkip, hasNextEpisode, durationSec, positionSec, skipSegments, leadSec]);
   const activeSkip = realActiveSkip ?? syntheticOutro;
   const remainingSec = Math.max(0, durationSec - positionSec);
 

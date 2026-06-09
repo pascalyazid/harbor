@@ -53,6 +53,8 @@ import { SearchOverlay } from "@/components/search/search-overlay";
 import { TogetherProvider, useTogether } from "@/lib/together/provider";
 import { DvrProvider } from "@/lib/dvr/provider";
 import { FavoritesProvider } from "@/lib/iptv/favorites";
+import { MediaFavoritesProvider } from "@/lib/media-favorites";
+import { LocalWatchlistProvider } from "@/lib/local-watchlist";
 import { useSettings } from "@/lib/settings";
 import { ViewProvider, useView, type Frame, type MetaFilter, type View } from "@/lib/view";
 import { useDiscordPresence } from "@/lib/discord/use-discord-presence";
@@ -60,6 +62,7 @@ import { Home } from "@/views/home";
 import { ParentalProvider } from "@/lib/parental";
 import { TraktProvider } from "@/lib/trakt/provider";
 import { AnilistProvider } from "@/lib/anilist/provider";
+import { SimklProvider } from "@/lib/simkl/provider";
 
 const importAnime = () => import("@/views/anime");
 const importCalendar = () => import("@/views/calendar");
@@ -70,6 +73,7 @@ const importAward = () => import("@/views/award");
 const importAnimeAward = () => import("@/views/anime-award");
 const importFilter = () => import("@/views/filter");
 const importPerson = () => import("@/views/person");
+const importCollection = () => import("@/views/collection");
 const importPlayPicker = () => import("@/views/play-picker");
 const importPlayer = () => import("@/views/player");
 const importMovies = () => import("@/views/movies");
@@ -79,6 +83,7 @@ const importSettings = () => import("@/views/settings");
 const importShows = () => import("@/views/shows");
 const importLibrary = () => import("@/views/library");
 const importLive = () => import("@/views/live");
+const importVod = () => import("@/views/playlist-vod");
 const importDownloads = () => import("@/views/downloads");
 const importOnboarding = () => import("@/components/onboarding");
 
@@ -91,6 +96,7 @@ const AwardView = lazy(() => importAward().then((m) => ({ default: m.AwardView }
 const AnimeAwardView = lazy(() => importAnimeAward().then((m) => ({ default: m.AnimeAwardView })));
 const FilterView = lazy(() => importFilter().then((m) => ({ default: m.FilterView })));
 const PersonView = lazy(() => importPerson().then((m) => ({ default: m.PersonView })));
+const CollectionView = lazy(() => importCollection().then((m) => ({ default: m.CollectionView })));
 const PlayPicker = lazy(() => importPlayPicker().then((m) => ({ default: m.PlayPicker })));
 const PlayerView = lazy(() => importPlayer().then((m) => ({ default: m.PlayerView })));
 const Movies = lazy(() => importMovies().then((m) => ({ default: m.Movies })));
@@ -100,6 +106,7 @@ const Settings = lazy(() => importSettings().then((m) => ({ default: m.Settings 
 const Shows = lazy(() => importShows().then((m) => ({ default: m.Shows })));
 const LibraryView = lazy(() => importLibrary().then((m) => ({ default: m.LibraryView })));
 const LiveView = lazy(() => importLive().then((m) => ({ default: m.LiveView })));
+const PlaylistVodView = lazy(() => importVod().then((m) => ({ default: m.PlaylistVodView })));
 const DownloadsView = lazy(() => importDownloads().then((m) => ({ default: m.DownloadsView })));
 const OnboardingModal = lazy(() => importOnboarding().then((m) => ({ default: m.OnboardingModal })));
 
@@ -188,6 +195,7 @@ export function App() {
       <ParentalProvider>
       <TraktProvider>
       <AnilistProvider>
+      <SimklProvider>
       <RankingsProvider>
         <AuthProvider>
           <OnboardingProvider>
@@ -196,6 +204,8 @@ export function App() {
                 <SearchProvider>
                 <DvrProvider>
                 <FavoritesProvider>
+                <MediaFavoritesProvider>
+                <LocalWatchlistProvider>
                 <ContextMenuProvider>
                   <TopRankModalProvider>
                     <HarborErrorBoundary>
@@ -228,6 +238,8 @@ export function App() {
                     <DevErrorTrigger />
                   </TopRankModalProvider>
                 </ContextMenuProvider>
+                </LocalWatchlistProvider>
+                </MediaFavoritesProvider>
                 </FavoritesProvider>
                 </DvrProvider>
                 </SearchProvider>
@@ -236,6 +248,7 @@ export function App() {
           </OnboardingProvider>
         </AuthProvider>
       </RankingsProvider>
+      </SimklProvider>
       </AnilistProvider>
       </TraktProvider>
       </ParentalProvider>
@@ -339,7 +352,7 @@ function filterReactKey(f: MetaFilter): string {
 }
 
 function Shell() {
-  const { topKind, service, meta, metaLiveContext, personId, filter, awardType, animeAwardSource, picker, player, setView, goBack } = useView();
+  const { topKind, service, meta, metaLiveContext, personId, collectionId, filter, awardType, animeAwardSource, picker, player, setView, goBack } = useView();
   const { settings } = useSettings();
   const preview = useThemePreview();
   const layout = useMemo(
@@ -400,6 +413,7 @@ function Shell() {
   useEffect(() => setNativeMemoryActive(playerActive), [playerActive]);
   const pickerTop = topKind === "picker";
   const personTop = topKind === "person";
+  const collectionTop = topKind === "collection";
   const detailTop = topKind === "meta";
   const filterTop = topKind === "filter";
   const awardTop = topKind === "award";
@@ -416,6 +430,7 @@ function Shell() {
   const showsTop = topKind === "shows";
   const libraryTop = topKind === "library";
   const liveTop = topKind === "live";
+  const vodTop = topKind === "vod";
   const downloadsTop = topKind === "downloads";
 
   const [immersive, setImmersive] = useState(false);
@@ -452,6 +467,7 @@ function Shell() {
   const serviceAlive = useKeepAlive(serviceTop, serviceTop && !!service);
   const detailAlive = useKeepAlive(detailTop, !!meta);
   const personAlive = useKeepAlive(personTop, personId !== null);
+  const collectionAlive = useKeepAlive(collectionTop, collectionId !== null);
   const filterAlive = useKeepAlive(filterTop, !!filter);
   const awardAlive = useKeepAlive(awardTop, awardTop);
   const animeAwardAlive = useKeepAlive(animeAwardTop, animeAwardTop && !!animeAwardSource);
@@ -460,6 +476,7 @@ function Shell() {
   const showsAlive = useIdleEvict(showsTop);
   const libraryAlive = useIdleEvict(libraryTop);
   const liveAlive = useIdleEvict(liveTop);
+  const vodAlive = useIdleEvict(vodTop);
   const downloadsAlive = useIdleEvict(downloadsTop);
 
   return (
@@ -544,6 +561,13 @@ function Shell() {
             </Suspense>
           </div>
         )}
+        {vodAlive && (
+          <div className={layer(vodTop)}>
+            <Suspense fallback={null}>
+              <PlaylistVodView active={vodTop} />
+            </Suspense>
+          </div>
+        )}
         {downloadsAlive && (
           <div className={layer(downloadsTop)}>
             <Suspense fallback={null}>
@@ -576,6 +600,13 @@ function Shell() {
           <div className={layer(personTop)}>
             <Suspense fallback={null}>
               <PersonView key={`person-${personId}`} personId={personId} />
+            </Suspense>
+          </div>
+        )}
+        {collectionAlive && collectionId !== null && (
+          <div className={layer(collectionTop)}>
+            <Suspense fallback={null}>
+              <CollectionView key={`collection-${collectionId}`} collectionId={collectionId} />
             </Suspense>
           </div>
         )}
@@ -628,7 +659,7 @@ function Shell() {
       </div>
       {player && (
         <Suspense fallback={null}>
-          <PlayerView key={`player-${player.meta.id}`} src={player} />
+          <PlayerView key={player.meta.id.startsWith("iptv:") ? "player-live" : `player-${player.meta.id}`} src={player} />
         </Suspense>
       )}
       <CustomCodeMount />

@@ -1,5 +1,4 @@
 import { meta as cinemetaMeta } from "./cinemeta";
-import { library, type LibraryItem } from "./stremio";
 import {
   fetchAnticipatedMovies,
   fetchAnticipatedShows,
@@ -7,8 +6,78 @@ import {
   fetchUpcomingMovies,
 } from "./trakt/calendar";
 import type { CalendarItem } from "./calendar";
+import { resolveSavedCalendar, type SavedCandidate } from "./calendar-library";
+import { fetchWatchlist as fetchSimklWatchlist } from "./simkl/watchlist";
+import { fetchSimklPremieres, resolveSimklIds } from "./simkl/premieres";
+import { isAuthenticated as simklConnected } from "./simkl/session";
 
-const LIBRARY_LIMIT = 100;
+export { fetchLibraryCalendar } from "./calendar-library";
+
+export async function fetchSimklPremieresCalendar(
+  year: number,
+  month: number,
+): Promise<CalendarItem[]> {
+  const premieres = await fetchSimklPremieres(year).catch(() => []);
+  const thisMonth = premieres.filter((p) => inMonth(p.date, year, month));
+  const resolved = await Promise.all(
+    thisMonth.map(async (p) => ({ p, ids: await resolveSimklIds(p.simklId, p.isAnime).catch(() => null) })),
+  );
+  const out: CalendarItem[] = [];
+  for (const { p, ids } of resolved) {
+    const id =
+      ids?.imdb ??
+      (ids?.tmdb ? `tmdb:tv:${ids.tmdb}` : null) ??
+      (ids?.kitsu ? `kitsu:${ids.kitsu}` : null) ??
+      (ids?.mal ? `mal:${ids.mal}` : null) ??
+      `simkl:${p.simklId}`;
+    out.push({
+      id,
+      imdbId: ids?.imdb ?? null,
+      type: "tv",
+      name: `${p.title} (premiere)`,
+      poster: p.poster,
+      background: null,
+      releaseDate: p.date,
+      isAnime: p.isAnime,
+      overview: "",
+      voteAverage: 0,
+    });
+  }
+  out.sort((a, b) => a.releaseDate.localeCompare(b.releaseDate));
+  return out;
+}
+
+export async function fetchSimklCalendar(
+  year: number,
+  month: number,
+  opts: { tmdbKey: string },
+): Promise<CalendarItem[]> {
+  if (!simklConnected()) return [];
+  const items = await fetchSimklWatchlist().catch(() => []);
+  const candidates: SavedCandidate[] = [];
+  for (const it of items) {
+    const id =
+      it.ids.imdb ??
+      (it.ids.tmdb
+        ? it.type === "movie"
+          ? `tmdb:movie:${it.ids.tmdb}`
+          : `tmdb:tv:${it.ids.tmdb}`
+        : it.ids.mal
+          ? `mal:${it.ids.mal}`
+          : null);
+    if (!id) continue;
+    candidates.push({
+      id,
+      type: it.type === "show" ? "series" : "movie",
+      name: it.title,
+      mtime: 0,
+      temp: false,
+    });
+  }
+  if (candidates.length === 0) return [];
+  return resolveSavedCalendar(candidates, year, month, opts);
+}
+
 const TRAKT_MAX_FORWARD_MONTHS = 6;
 
 function pad(n: number): string {
@@ -27,69 +96,6 @@ function isAnimationGenre(genres: string[] | undefined): boolean {
   return genres.some((g) => wanted.includes(g.toLowerCase()));
 }
 
-export async function fetchLibraryCalendar(
-  authKey: string,
-  year: number,
-  month: number,
-): Promise<CalendarItem[]> {
-  const items = await library(authKey).catch(() => [] as LibraryItem[]);
-  const eligible = items
-    .filter((i) => !i.removed && i._id.startsWith("tt"))
-    .sort((a, b) => (b._mtime ?? "").localeCompare(a._mtime ?? ""))
-    .slice(0, LIBRARY_LIMIT);
-  if (!eligible.length) return [];
-  const metas = await Promise.all(
-    eligible.map((i) => cinemetaMeta(i.type, i._id).catch(() => null)),
-  );
-  const out: CalendarItem[] = [];
-  for (let idx = 0; idx < eligible.length; idx++) {
-    const lib = eligible[idx];
-    const m = metas[idx];
-    if (!m) continue;
-    const anime = isAnimationGenre(m.genres);
-    if (lib.type === "movie") {
-      const date = (m.releaseDate ?? "").slice(0, 10);
-      if (!inMonth(date, year, month)) continue;
-      out.push({
-        id: m.id,
-        imdbId: m.id.startsWith("tt") ? m.id : null,
-        type: "movie",
-        name: m.name,
-        poster: m.poster ?? null,
-        background: m.background ?? null,
-        releaseDate: date,
-        isAnime: anime,
-        overview: m.description ?? "",
-        voteAverage: parseFloat(m.imdbRating ?? "0") || 0,
-      });
-      continue;
-    }
-    for (const v of m.videos ?? []) {
-      const date = (v.released ?? v.firstAired ?? "").slice(0, 10);
-      if (!inMonth(date, year, month)) continue;
-      const season = v.season ?? 0;
-      const episode = v.episode ?? v.number ?? 0;
-      if (season === 0 && episode === 0) continue;
-      const epLabel = `S${pad(season)}E${pad(episode)}`;
-      const epTitle = v.name ?? v.title ?? "";
-      out.push({
-        id: v.id ?? `${m.id}:${season}:${episode}`,
-        imdbId: m.id.startsWith("tt") ? m.id : null,
-        type: "tv",
-        name: epTitle ? `${m.name} ${epLabel}: ${epTitle}` : `${m.name} ${epLabel}`,
-        poster: m.poster ?? null,
-        background: m.background ?? null,
-        releaseDate: date,
-        isAnime: anime,
-        overview: m.description ?? "",
-        voteAverage: parseFloat(m.imdbRating ?? "0") || 0,
-      });
-    }
-  }
-  out.sort((a, b) => a.releaseDate.localeCompare(b.releaseDate));
-  return out;
-}
-
 export async function fetchTraktCalendar(
   year: number,
   month: number,
@@ -104,42 +110,60 @@ export async function fetchTraktCalendar(
     fetchUpcomingEpisodes(days),
     fetchUpcomingMovies(days),
   ]);
+
+  const epsInMonth = eps.filter((ep) => inMonth((ep.airDate ?? "").slice(0, 10), year, month));
+  const mvsInMonth = mvs.filter((m) => inMonth((m.contextDate ?? "").slice(0, 10), year, month));
+
+  const showIds = [...new Set(epsInMonth.map((e) => e.ids.imdb).filter((x): x is string => !!x))];
+  const movieIds = [...new Set(mvsInMonth.map((m) => m.ids.imdb).filter((x): x is string => !!x))];
+  const [showMetas, movieMetas] = await Promise.all([
+    Promise.all(showIds.map((id) => cinemetaMeta("series", id).catch(() => null))),
+    Promise.all(movieIds.map((id) => cinemetaMeta("movie", id).catch(() => null))),
+  ]);
+  const showMeta = new Map(showIds.map((id, i) => [id, showMetas[i]] as const));
+  const movieMeta = new Map(movieIds.map((id, i) => [id, movieMetas[i]] as const));
+
   const out: CalendarItem[] = [];
-  for (const ep of eps) {
+  for (const ep of epsInMonth) {
     const date = (ep.airDate ?? "").slice(0, 10);
-    if (!inMonth(date, year, month)) continue;
-    const baseId = ep.ids.imdb ?? `trakt:${ep.ids.tmdb ?? ep.ids.tvdb ?? ep.title}`;
+    const imdb = ep.ids.imdb ?? null;
+    const meta = imdb ? showMeta.get(imdb) ?? null : null;
+    const baseId = imdb ?? `trakt:${ep.ids.tmdb ?? ep.ids.tvdb ?? ep.title}`;
     const epLabel = `S${pad(ep.season)}E${pad(ep.number)}`;
+    const vid = meta?.videos?.find(
+      (v) => (v.season ?? 0) === ep.season && (v.episode ?? v.number ?? 0) === ep.number,
+    );
     out.push({
       id: `${baseId}:${ep.season}:${ep.number}`,
-      imdbId: ep.ids.imdb ?? null,
+      imdbId: imdb,
       type: "tv",
       name: ep.episodeTitle
         ? `${ep.title} ${epLabel}: ${ep.episodeTitle}`
         : `${ep.title} ${epLabel}`,
-      poster: null,
-      background: null,
+      poster: vid?.thumbnail ?? meta?.poster ?? null,
+      background: meta?.background ?? null,
       releaseDate: date,
-      isAnime: false,
-      overview: "",
-      voteAverage: 0,
+      isAnime: isAnimationGenre(meta?.genres),
+      overview: meta?.description ?? "",
+      voteAverage: parseFloat(meta?.imdbRating ?? "0") || 0,
     });
   }
-  for (const m of mvs) {
+  for (const m of mvsInMonth) {
     const date = (m.contextDate ?? "").slice(0, 10);
-    if (!inMonth(date, year, month)) continue;
-    const id = m.ids.imdb ?? `trakt:${m.ids.tmdb ?? m.title}`;
+    const imdb = m.ids.imdb ?? null;
+    const meta = imdb ? movieMeta.get(imdb) ?? null : null;
+    const id = imdb ?? `trakt:${m.ids.tmdb ?? m.title}`;
     out.push({
       id,
-      imdbId: m.ids.imdb ?? null,
+      imdbId: imdb,
       type: "movie",
       name: m.title,
-      poster: null,
-      background: null,
+      poster: meta?.poster ?? null,
+      background: meta?.background ?? null,
       releaseDate: date,
-      isAnime: false,
-      overview: "",
-      voteAverage: 0,
+      isAnime: isAnimationGenre(meta?.genres),
+      overview: meta?.description ?? "",
+      voteAverage: parseFloat(meta?.imdbRating ?? "0") || 0,
     });
   }
   out.sort((a, b) => a.releaseDate.localeCompare(b.releaseDate));

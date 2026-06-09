@@ -1,6 +1,7 @@
 import { Cast, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchTrailer, trailerSrc } from "@/lib/trailer";
+import { fetchTrailer, resolveTrailerQuality, trailerSrc } from "@/lib/trailer";
+import { useSettings } from "@/lib/settings";
 import { useView } from "@/lib/view";
 import { NativeTrailerPlayer } from "./native-trailer-player";
 import { Tooltip } from "./tooltip";
@@ -17,6 +18,7 @@ export function TrailerOverlay({
   onClose: () => void;
 }) {
   const { setChromeHidden } = useView();
+  const { settings } = useSettings();
   const [open, setOpen] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [extractFailed, setExtractFailed] = useState(false);
@@ -35,7 +37,7 @@ export function TrailerOverlay({
 
   useEffect(() => {
     let cancelled = false;
-    fetchTrailer(id).then((info) => {
+    fetchTrailer(id, resolveTrailerQuality(settings.trailerQuality)).then((info) => {
       if (cancelled) return;
       if (info) setStreamUrl(trailerSrc(info));
       else setExtractFailed(true);
@@ -43,7 +45,7 @@ export function TrailerOverlay({
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, settings.trailerQuality]);
 
   const dismiss = useCallback(() => {
     if (closingRef.current) return;

@@ -84,6 +84,7 @@ export type Stream = {
   liveStreamCheck?: boolean;
   addonId: string;
   addonName: string;
+  addonUrl?: string;
   addonRanked?: boolean;
   contributors?: Array<{ id: string; name: string }>;
 };

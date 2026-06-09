@@ -63,7 +63,10 @@ async function fetchSource(
   try {
     if (source === "library") {
       if (!authKey) return [];
-      return await fetchLibraryCalendar(authKey, year, month);
+      return await fetchLibraryCalendar(authKey, year, month, {
+        tmdbKey: settings.tmdbKey,
+        includeTrakt: traktConnected(),
+      });
     }
     if (source === "trakt") {
       if (!traktConnected()) return [];

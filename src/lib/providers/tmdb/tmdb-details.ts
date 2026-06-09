@@ -88,6 +88,7 @@ export type TmdbDetail = {
   editor: PersonRef[];
   recommendations: Meta[];
   similar: Meta[];
+  collection?: { id: number; name: string } | null;
   seasons: Season[];
   numberOfSeasons: number;
   numberOfEpisodes: number;
@@ -294,6 +295,9 @@ export async function tmdbDetails(key: string, meta: Meta): Promise<TmdbDetail |
     editor,
     recommendations,
     similar,
+    collection: raw.belongs_to_collection
+      ? { id: raw.belongs_to_collection.id, name: raw.belongs_to_collection.name ?? "" }
+      : null,
     seasons,
     numberOfSeasons: raw.number_of_seasons ?? 0,
     numberOfEpisodes: raw.number_of_episodes ?? 0,

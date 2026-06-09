@@ -5,9 +5,7 @@ import { setUserAddons, userAddons, type Addon } from "./addons";
 const STORAGE_KEY = "harbor.installed-addons";
 const SEEDED_KEY = "harbor.addons.seeded.v1";
 
-const DEFAULT_ADDONS: Array<{ id: string; transportUrl: string }> = [
-  { id: "com.stremio.torrentio.addon", transportUrl: "https://torrentio.strem.fun/manifest.json" },
-];
+const DEFAULT_ADDONS: Array<{ id: string; transportUrl: string }> = [];
 
 export async function seedDefaultAddonsIfFirstRun(): Promise<void> {
   try {

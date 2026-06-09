@@ -1,11 +1,19 @@
 import { ChevronDown, Download, ExternalLink, Loader2, Play, Zap } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { AddonLogo, AddonLogoStack } from "@/components/addon-logo";
 import { FlagStack } from "@/components/flag";
 import { FormatBadge } from "@/components/format-badge";
 import { useDebridClients } from "@/lib/debrid/registry";
 import type { ScoredStream } from "@/lib/streams/types";
 import type { PlayEpisode } from "@/lib/view";
-import { contributorLabel, displayTitle, streamSummaryParts, tierChipBadges } from "./picker-utils";
+import {
+  addonInstanceKey,
+  buildAddonOptions,
+  contributorLabel,
+  displayTitle,
+  streamSummaryParts,
+  tierChipBadges,
+} from "./picker-utils";
 
 export function SourceDrawer({
   open,
@@ -34,6 +42,15 @@ export function SourceDrawer({
   showName: string;
   episode?: PlayEpisode;
 }) {
+  const [addonFilter, setAddonFilter] = useState("all");
+  const addonOptions = useMemo(() => buildAddonOptions(streams), [streams]);
+  const shown = useMemo(
+    () => (addonFilter === "all" ? streams : streams.filter((s) => addonInstanceKey(s) === addonFilter)),
+    [streams, addonFilter],
+  );
+  useEffect(() => {
+    if (addonFilter !== "all" && !addonOptions.some((o) => o.id === addonFilter)) setAddonFilter("all");
+  }, [addonOptions, addonFilter]);
   return (
     <div className="flex flex-col gap-4">
       <button
@@ -55,9 +72,23 @@ export function SourceDrawer({
           </span>
         )}
       </button>
+      {open && addonOptions.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <AddonPill active={addonFilter === "all"} onClick={() => setAddonFilter("all")} label="All" count={streams.length} />
+          {addonOptions.map((o) => (
+            <AddonPill
+              key={o.id}
+              active={addonFilter === o.id}
+              onClick={() => setAddonFilter(o.id)}
+              label={o.name}
+              count={o.count}
+            />
+          ))}
+        </div>
+      )}
       {open && (
         <ul className="overflow-hidden rounded-2xl border border-edge-soft/60 bg-canvas/80">
-          {streams.slice(0, 80).map((s, i) => (
+          {shown.slice(0, 80).map((s, i) => (
             <SourceRow
               key={`${s.addonId}-${s.infoHash ?? s.url ?? i}`}
               stream={s}
@@ -73,6 +104,32 @@ export function SourceDrawer({
         </ul>
       )}
     </div>
+  );
+}
+
+function AddonPill({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+        active
+          ? "bg-ink text-canvas"
+          : "bg-elevated/50 text-ink-muted ring-1 ring-edge-soft/60 hover:bg-elevated hover:text-ink"
+      }`}
+    >
+      <span className="max-w-[180px] truncate">{label}</span>
+      <span className={active ? "text-canvas/70" : "text-ink-subtle/80"}>{count}</span>
+    </button>
   );
 }
 

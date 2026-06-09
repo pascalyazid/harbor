@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AddonsIcon } from "@/components/icons/addons-icon";
+import { DownloadsNavIcon } from "@/chrome/downloads-nav-icon";
 import { AnimeIcon } from "@/components/icons/anime-icon";
 import { CalendarIcon } from "@/components/icons/calendar-icon";
 import { DiscoverIcon } from "@/components/icons/discover-icon";
 import { HomeIcon } from "@/components/icons/home-icon";
 import { LibraryIcon } from "@/components/icons/library-icon";
 import { LiveTvIcon } from "@/components/icons/live-tv-icon";
+import { PlaylistVodIcon } from "@/components/icons/playlist-vod-icon";
 import { MoviesIcon } from "@/components/icons/movies-icon";
 import { SettingsIcon } from "@/components/icons/settings-icon";
 import { TvIcon } from "@/components/icons/tv-icon";
@@ -31,8 +33,10 @@ const ITEMS: DockItem[] = [
   { view: "shows", label: "Shows", icon: (a) => <TvIcon active={a} />, parentalKey: "shows" },
   { view: "anime", label: "Anime", icon: (a) => <AnimeIcon active={a} />, hideKey: "anime", parentalKey: "anime" },
   { view: "live", label: "Live TV", icon: (a) => <LiveTvIcon active={a} />, hideKey: "liveTv", parentalKey: "liveTv" },
+  { view: "vod", label: "Playlists", icon: (a) => <PlaylistVodIcon active={a} /> },
   { view: "calendar", label: "Calendar", icon: (a) => <CalendarIcon active={a} />, parentalKey: "calendar" },
   { view: "library", label: "Library", icon: (a) => <LibraryIcon active={a} />, parentalKey: "library" },
+  { view: "downloads", label: "Downloads", icon: (a) => <DownloadsNavIcon active={a} /> },
   { view: "addons", label: "Addons", icon: (a) => <AddonsIcon active={a} />, parentalKey: "addons" },
   { view: "settings", label: "Settings", icon: (a) => <SettingsIcon active={a} /> },
 ];
@@ -58,6 +62,7 @@ export function MinUIDock() {
   }, []);
 
   const visible = ITEMS.filter((it) => {
+    if (it.view === "vod" && !settings.showPlaylistsTab) return false;
     if (it.hideKey && settings.hideContent[it.hideKey]) return false;
     if (it.parentalKey && locked && hiddenTabs[it.parentalKey]) return false;
     return true;

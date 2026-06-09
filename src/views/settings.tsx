@@ -10,6 +10,7 @@ import { PlayerLayoutPanel } from "./settings/player-layout-panel";
 import { QualityPanel } from "./settings/quality-panel";
 import { TraktPanel } from "./settings/trakt-panel";
 import { AnilistPanel } from "./settings/anilist-panel";
+import { SimklPanel } from "./settings/simkl-panel";
 import { RelaySection, type RelayMode } from "./settings/relay-section";
 import { SettingsActiveContext, type SectionId } from "./settings/shared";
 import { StreamingSourcesPanel, type DebridKey } from "./settings/streaming-sources-panel";
@@ -38,6 +39,10 @@ const SECTION_META: Record<SectionId, { label: string; sub: string }> = {
   anilist: {
     label: "AniList",
     sub: "Connect your AniList account to show your anime lists as rails on the Anime page.",
+  },
+  simkl: {
+    label: "Simkl",
+    sub: "Connect your Simkl account to mark what you finish as watched and sync your plan-to-watch list across apps.",
   },
   relay: {
     label: "Harbor Relay",
@@ -103,16 +108,43 @@ export function Settings() {
     (settingsSectionRequest.section as SectionId | null) ?? "account",
   );
   const [relayMode, setRelayMode] = useState<RelayMode>("panel");
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const scrollRef = useRef<HTMLElement>(null);
+
+  const handleNav = (id: SectionId, anchor?: string) => {
+    setActive(id);
+    setPendingAnchor(anchor ?? null);
+  };
 
   useEffect(() => {
     if (settingsSectionRequest.section) setActive(settingsSectionRequest.section as SectionId);
   }, [settingsSectionRequest]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
     if (active !== "relay") setRelayMode("panel");
   }, [active]);
+
+  useEffect(() => {
+    if (!pendingAnchor) {
+      scrollRef.current?.scrollTo({ top: 0 });
+      return;
+    }
+    const target = pendingAnchor;
+    let tries = 0;
+    let timer = 0;
+    const tryScroll = () => {
+      const el = document.getElementById(target);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        setPendingAnchor(null);
+        return;
+      }
+      if (tries++ < 12) timer = window.setTimeout(tryScroll, 40);
+      else setPendingAnchor(null);
+    };
+    timer = window.setTimeout(tryScroll, 60);
+    return () => window.clearTimeout(timer);
+  }, [active, pendingAnchor]);
 
   const saveKey = (which: SavedKey, value: string) => {
     const trimmed = value.trim();
@@ -138,7 +170,7 @@ export function Settings() {
   return (
     <SettingsActiveContext.Provider value={{ setActive }}>
     <div className="flex h-full bg-canvas">
-      <SettingsNav active={active} onChange={setActive} />
+      <SettingsNav active={active} onChange={handleNav} />
       <main
         ref={scrollRef}
         className="flex-1 overflow-y-auto pt-28 pb-16"
@@ -204,6 +236,8 @@ export function Settings() {
           {active === "trakt" && <TraktPanel />}
 
           {active === "anilist" && <AnilistPanel />}
+
+          {active === "simkl" && <SimklPanel />}
 
           {active === "theme" && <ThemePanel />}
 

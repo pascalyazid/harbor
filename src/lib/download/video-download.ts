@@ -1,4 +1,4 @@
-import { create } from "@tauri-apps/plugin-fs";
+import { Channel, invoke } from "@tauri-apps/api/core";
 
 export type DownloadProgress = {
   receivedBytes: number;
@@ -11,44 +11,66 @@ export type DownloadHandle = {
   abort: () => void;
 };
 
+type DownloadEvent =
+  | { kind: "started"; total: number | null; resumed: number }
+  | { kind: "progress"; received: number; total: number | null }
+  | { kind: "done"; received: number }
+  | { kind: "error"; message: string }
+  | { kind: "canceled"; received: number };
+
 export function startDownload(
+  id: string,
   url: string,
   destPath: string,
   onProgress: (p: DownloadProgress) => void,
 ): DownloadHandle {
-  const controller = new AbortController();
+  let settle = () => {};
+  let fail = (_e: Error) => {};
+  const promise = new Promise<void>((res, rej) => {
+    settle = res;
+    fail = rej;
+  });
 
-  const promise = (async () => {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    if (!res.body) throw new Error("No response body");
+  const emit = (received: number, total: number | null) =>
+    onProgress({
+      receivedBytes: received,
+      totalBytes: total,
+      ratio: total ? Math.min(1, received / total) : 0,
+    });
 
-    const total = Number(res.headers.get("content-length")) || null;
-    const reader = res.body.getReader();
-    const file = await create(destPath);
-    let received = 0;
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value && value.length > 0) {
-          await file.write(value);
-          received += value.length;
-          onProgress({
-            receivedBytes: received,
-            totalBytes: total,
-            ratio: total ? Math.min(1, received / total) : 0,
-          });
-        }
+  const channel = new Channel<DownloadEvent>();
+  channel.onmessage = (ev) => {
+    switch (ev.kind) {
+      case "started":
+        emit(ev.resumed, ev.total);
+        break;
+      case "progress":
+        emit(ev.received, ev.total);
+        break;
+      case "done":
+        emit(ev.received, ev.received);
+        settle();
+        break;
+      case "canceled": {
+        const e = new Error("Download canceled");
+        e.name = "AbortError";
+        fail(e);
+        break;
       }
-    } finally {
-      await file.close();
+      case "error":
+        fail(new Error(ev.message));
+        break;
     }
-  })();
+  };
+
+  invoke("download_start", { id, url, dest: destPath, onEvent: channel }).catch((e: unknown) => {
+    fail(e instanceof Error ? e : new Error(String(e)));
+  });
 
   return {
     promise,
-    abort: () => controller.abort(),
+    abort: () => {
+      void invoke("download_cancel", { id });
+    },
   };
 }

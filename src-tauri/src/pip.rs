@@ -228,6 +228,14 @@ pub async fn window_pip_enter(
         .map_err(|e| format!("set_position: {}", e))?;
     let _ = main.set_focus();
 
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(ns) = main.ns_window() {
+            let ptr = ns as i64;
+            let _ = app.run_on_main_thread(move || crate::pip_mac::enter_pip_window(ptr));
+        }
+    }
+
     let _ = app.emit_to("main", "pip://entered", ());
 
     Ok(())
@@ -264,6 +272,15 @@ pub async fn window_pip_exit(
         let _ = main.center();
     }
     let _ = main.set_focus();
+
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(ns) = main.ns_window() {
+            let ptr = ns as i64;
+            let _ = app.run_on_main_thread(move || crate::pip_mac::exit_pip_window(ptr));
+        }
+    }
+
     let _ = app.emit_to("main", "pip://exited", ());
     Ok(())
 }

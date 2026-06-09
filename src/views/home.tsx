@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BackToTop } from "@/components/back-to-top";
 import { HeroCarousel, type Slide } from "@/components/hero-carousel";
+import { CollectionsRow } from "@/components/collections-row";
 import { TmdbNudge } from "@/components/nudge";
 import { Row, ScrollRootContext } from "@/components/row";
 import {
@@ -25,6 +26,11 @@ import { episodeFromVideoId, library, libraryPut, type LibraryItem } from "@/lib
 import { useTrakt } from "@/lib/trakt/provider";
 import { buildTraktHomeRows } from "@/lib/trakt/home-rails";
 import { fetchWatchedKeySet } from "@/lib/trakt/history";
+import { buildSimklHomeRows } from "@/lib/simkl/home-rails";
+import { fetchSimklPlaybackItems } from "@/lib/simkl/playback";
+import { useSimkl } from "@/lib/simkl/provider";
+import { useMediaFavorites, type MediaEntry } from "@/lib/media-favorites";
+import { useLocalWatchlist } from "@/lib/local-watchlist";
 import { useScrollMemory, useView } from "@/lib/view";
 import { CustomizableRows } from "./home/customizable-rows";
 import { CustomizeBar } from "./home/customize-bar";
@@ -47,12 +53,15 @@ export function Home({ active = true }: { active?: boolean }) {
   const [rows, setRows] = useState<HomeRow[]>([]);
   const [animeRows, setAnimeRows] = useState<HomeRow[]>([]);
   const [traktRows, setTraktRows] = useState<HomeRow[]>([]);
+  const [simklRows, setSimklRows] = useState<HomeRow[]>([]);
+  const [simklCw, setSimklCw] = useState<LibraryItem[]>([]);
   const [traktWatched, setTraktWatched] = useState<Set<string>>(() => new Set());
   const [heroPool, setHeroPool] = useState<Meta[]>([]);
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [tmdbProvidedByAddon, setTmdbProvidedByAddon] = useState(false);
   const { isConnected: traktConnected } = useTrakt();
+  const { isConnected: simklConnected } = useSimkl();
   const rowsRef = useRef<HomeRow[]>([]);
   const loadingRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -168,6 +177,38 @@ export function Home({ active = true }: { active?: boolean }) {
     };
   }, [traktConnected, settings.tmdbKey]);
 
+  useEffect(() => {
+    if (!simklConnected) {
+      setSimklRows([]);
+      return;
+    }
+    let cancelled = false;
+    buildSimklHomeRows(settings.tmdbKey)
+      .then((rs) => {
+        if (!cancelled) setSimklRows(rs);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [simklConnected, settings.tmdbKey]);
+
+  useEffect(() => {
+    if (!simklConnected) {
+      setSimklCw([]);
+      return;
+    }
+    let cancelled = false;
+    fetchSimklPlaybackItems()
+      .then((cw) => {
+        if (!cancelled) setSimklCw(cw);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [simklConnected]);
+
   const trackedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!authKey) {
@@ -226,7 +267,7 @@ export function Home({ active = true }: { active?: boolean }) {
   }, [authKey, active]);
 
   const continueWatching = useMemo(() => {
-    const eligible = items
+    const eligible = [...items, ...simklCw]
       .filter(
         (i) =>
           !dismissed.has(i._id) &&
@@ -249,7 +290,7 @@ export function Home({ active = true }: { active?: boolean }) {
       if (out.length >= 20) break;
     }
     return out;
-  }, [items, dismissed]);
+  }, [items, simklCw, dismissed]);
 
   const onDismissCw = useCallback(
     (id: string) => {
@@ -319,10 +360,27 @@ export function Home({ active = true }: { active?: boolean }) {
   const top10 = displayed.top10;
   const restRows = displayed.rest;
 
+  const { items: favItems } = useMediaFavorites();
+  const { items: localItems } = useLocalWatchlist();
+  const personalRows = useMemo<HomeRow[]>(() => {
+    const toMetas = (m: Map<string, MediaEntry>): Meta[] =>
+      [...m.values()]
+        .sort((a, b) => b.addedAt - a.addedAt)
+        .map((e) => ({ id: e.id, type: e.type, name: e.name, poster: e.poster }));
+    const out: HomeRow[] = [];
+    if (favItems.size > 0) {
+      out.push({ key: "harbor-favorites", type: "movie", name: "Favorites", metas: toMetas(favItems), page: 1, hasMore: false, noDedup: true });
+    }
+    if (localItems.size > 0) {
+      out.push({ key: "harbor-watchlist", type: "movie", name: "My Watchlist", metas: toMetas(localItems), page: 1, hasMore: false, noDedup: true });
+    }
+    return out;
+  }, [favItems, localItems]);
+
   const homeRowsCustom = settings.homeRows;
   const allCustomizableRows = useMemo(
-    () => [...traktRows, ...restRows, ...animeRows],
-    [traktRows, restRows, animeRows],
+    () => [...personalRows, ...traktRows, ...simklRows, ...restRows, ...animeRows],
+    [personalRows, traktRows, simklRows, restRows, animeRows],
   );
   const visibleRows = useMemo(
     () => applyHomeRowCustomization(allCustomizableRows, homeRowsCustom, false),
@@ -456,7 +514,12 @@ export function Home({ active = true }: { active?: boolean }) {
               onToggleHidden={() => handleToggleHidden("top10")}
             />
           )}
-          {rows.length === 0 && traktRows.length === 0 && animeRows.length === 0 ? (
+          {settings.homeMode !== "classic" && settings.tmdbKey && (
+            <div data-scroll-anchor="collections" style={{ contentVisibility: "auto", containIntrinsicSize: "auto 260px" }}>
+              <CollectionsRow />
+            </div>
+          )}
+          {rows.length === 0 && traktRows.length === 0 && simklRows.length === 0 && animeRows.length === 0 ? (
             Array.from({ length: 7 }).map((_, i) => <RowSkeleton key={`skel-${i}`} />)
           ) : (
             <CustomizableRows

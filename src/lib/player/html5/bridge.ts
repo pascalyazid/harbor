@@ -448,6 +448,7 @@ export function createHtml5Bridge(): PlayerBridge {
       refreshSnapshot();
       tickCues();
     },
+    setSubVisible() {},
     setSubDelay(sec) {
       subDelaySec = sec;
       lastCueId = "";

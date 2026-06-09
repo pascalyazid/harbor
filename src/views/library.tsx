@@ -2,7 +2,9 @@ import { Bookmark, Clock, HardDrive } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import traktLogo from "@/assets/trakt.svg";
 import anilistLogo from "@/assets/anilist.png";
+import simklLogo from "@/assets/simkl.png";
 import { useAnilist } from "@/lib/anilist/provider";
+import { useSimkl } from "@/lib/simkl/provider";
 import { useTrakt } from "@/lib/trakt/provider";
 import { useScrollMemory } from "@/lib/view";
 import { watchlistHas } from "@/lib/watchlist";
@@ -10,6 +12,7 @@ import { AnilistTab } from "./library/anilist-tab";
 import { HistoryTab } from "./library/history-tab";
 import { LocalTab } from "./library/local-tab";
 import { TabBtn, type Tab } from "./library/shared";
+import { SimklTab } from "./library/simkl-tab";
 import { TraktTab } from "./library/trakt-tab";
 import { WatchlistTab } from "./library/watchlist-tab";
 import { pushActivityHint } from "@/lib/discord/activity-hint";
@@ -19,7 +22,14 @@ const LIBRARY_TAB_KEY = "harbor.library.tab";
 function readSavedTab(): Tab {
   try {
     const v = localStorage.getItem(LIBRARY_TAB_KEY);
-    if (v === "watchlist" || v === "history" || v === "local" || v === "trakt" || v === "anilist")
+    if (
+      v === "watchlist" ||
+      v === "history" ||
+      v === "local" ||
+      v === "trakt" ||
+      v === "anilist" ||
+      v === "simkl"
+    )
       return v;
   } catch {}
   return "watchlist";
@@ -29,6 +39,7 @@ export function LibraryView({ active }: { active: boolean }) {
   const [tab, setTab] = useState<Tab>(readSavedTab);
   const { isConnected: traktConnected } = useTrakt();
   const { isConnected: anilistConnected } = useAnilist();
+  const { isConnected: simklConnected } = useSimkl();
   const scrollRef = useRef<HTMLElement>(null);
   useScrollMemory("library", scrollRef, active);
 
@@ -47,6 +58,10 @@ export function LibraryView({ active }: { active: boolean }) {
   }, [tab, anilistConnected]);
 
   useEffect(() => {
+    if (tab === "simkl" && !simklConnected) setTab("watchlist");
+  }, [tab, simklConnected]);
+
+  useEffect(() => {
     if (!active) return;
     const label =
       tab === "watchlist"
@@ -55,7 +70,9 @@ export function LibraryView({ active }: { active: boolean }) {
           ? "Browsing their watch history"
           : tab === "trakt"
             ? "Browsing their Trakt library"
-            : "Browsing their Stremio library";
+            : tab === "simkl"
+              ? "Browsing their Simkl library"
+              : "Browsing their Stremio library";
     return pushActivityHint({ details: label, state: "Library" });
   }, [active, tab]);
 
@@ -70,12 +87,14 @@ export function LibraryView({ active }: { active: boolean }) {
           onTab={setTab}
           traktConnected={traktConnected}
           anilistConnected={anilistConnected}
+          simklConnected={simklConnected}
         />
         {tab === "watchlist" && <WatchlistTab />}
         {tab === "history" && <HistoryTab />}
         {tab === "local" && <LocalTab />}
         {tab === "trakt" && traktConnected && <TraktTab />}
         {tab === "anilist" && anilistConnected && <AnilistTab />}
+        {tab === "simkl" && simklConnected && <SimklTab />}
       </div>
     </main>
   );
@@ -86,11 +105,13 @@ function Header({
   onTab,
   traktConnected,
   anilistConnected,
+  simklConnected,
 }: {
   tab: Tab;
   onTab: (t: Tab) => void;
   traktConnected: boolean;
   anilistConnected: boolean;
+  simklConnected: boolean;
 }) {
   return (
     <header className="flex flex-col gap-5">
@@ -131,6 +152,12 @@ function Header({
           <TabBtn active={tab === "anilist"} onClick={() => onTab("anilist")}>
             <img src={anilistLogo} alt="" className="h-3.5 w-3.5 rounded-[3px] object-contain" />
             AniList
+          </TabBtn>
+        )}
+        {simklConnected && (
+          <TabBtn active={tab === "simkl"} onClick={() => onTab("simkl")}>
+            <img src={simklLogo} alt="" className="h-3.5 w-3.5 object-contain" />
+            Simkl
           </TabBtn>
         )}
       </div>

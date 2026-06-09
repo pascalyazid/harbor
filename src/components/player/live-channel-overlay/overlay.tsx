@@ -158,6 +158,15 @@ export function LiveChannelOverlay({
     return findCurrent(programs, nowMs).current;
   }, [currentChannel, epg, tvgIdCounts, nowMs]);
 
+  const defaultedGroupRef = useRef(false);
+  useEffect(() => {
+    if (defaultedGroupRef.current) return;
+    if (currentChannel?.group) {
+      setGroup(currentChannel.group);
+      defaultedGroupRef.current = true;
+    }
+  }, [currentChannel, setGroup]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -170,7 +179,7 @@ export function LiveChannelOverlay({
   useScrollMemory(`live-overlay:${source.id}`, scrollRef, true);
 
   return (
-    <div className="pointer-events-auto absolute inset-0 z-[60] flex flex-col bg-surface/90 text-ink">
+    <div className="pointer-events-auto absolute inset-0 z-[60] flex flex-col bg-canvas/95 text-ink">
       <div className="flex shrink-0 items-start gap-3 px-6 pt-6">
         <button
           onClick={onClose}

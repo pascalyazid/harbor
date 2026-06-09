@@ -10,6 +10,7 @@ import {
 import {
   startDownload,
   type DownloadHandle,
+  type DownloadProgress,
 } from "@/lib/download/video-download";
 import { useSettings } from "@/lib/settings";
 import type { PlayEpisode } from "@/lib/view";
@@ -67,7 +68,8 @@ export function useVideoDownload({ url, meta, episode }: Args) {
     }
 
     setStatus({ kind: "downloading", ratio: 0, receivedBytes: 0, totalBytes: null });
-    const handle = startDownload(url, path, (p) => {
+    const id = crypto.randomUUID();
+    const handle = startDownload(id, url, path, (p: DownloadProgress) => {
       setStatus({
         kind: "downloading",
         ratio: p.ratio,

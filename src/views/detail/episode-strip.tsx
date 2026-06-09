@@ -5,6 +5,7 @@ import { Poster } from "@/components/poster";
 import type { Meta } from "@/lib/cinemeta";
 import type { Episode } from "@/lib/providers/tmdb";
 import { useSettings } from "@/lib/settings";
+import { SPOILER_TEXT_CLASS, SPOILER_THUMB_CLASS, type SpoilerMask } from "@/lib/spoilers";
 import { useView } from "@/lib/view";
 
 type Progress = { ratio: number; watched: boolean; startedAt: number };
@@ -14,12 +15,14 @@ export function EpisodeStrip({
   episodes,
   progressFor,
   thumbnailFor,
+  spoilerFor,
   onContextMenu,
 }: {
   meta: Meta;
   episodes: Episode[];
   progressFor: (ep: Episode) => Progress;
   thumbnailFor: (ep: Episode) => string | undefined;
+  spoilerFor?: (ep: Episode) => SpoilerMask;
   onContextMenu?: (e: React.MouseEvent, season: number, episode: number, watched: boolean) => void;
 }) {
   return (
@@ -31,6 +34,7 @@ export function EpisodeStrip({
           ep={ep}
           progress={progressFor(ep)}
           cinemetaThumbnail={thumbnailFor(ep)}
+          spoiler={spoilerFor?.(ep)}
           onContextMenu={onContextMenu}
         />
       ))}
@@ -43,12 +47,14 @@ function EpisodeStripCard({
   ep,
   progress,
   cinemetaThumbnail,
+  spoiler,
   onContextMenu,
 }: {
   meta: Meta;
   ep: Episode;
   progress: Progress;
   cinemetaThumbnail?: string;
+  spoiler?: SpoilerMask;
   onContextMenu?: (e: React.MouseEvent, season: number, episode: number, watched: boolean) => void;
 }) {
   const { openPicker } = useView();
@@ -84,13 +90,15 @@ function EpisodeStripCard({
       className="group flex w-[244px] shrink-0 flex-col gap-2.5 text-left"
     >
       <div className="relative aspect-video overflow-hidden rounded-xl">
-        <Poster
-          src={still}
-          seed={String(ep.id)}
-          ratio="landscape"
-          className=""
-          onError={() => setImgIdx((i) => i + 1)}
-        />
+        <div className={spoiler?.thumb ? SPOILER_THUMB_CLASS : undefined}>
+          <Poster
+            src={still}
+            seed={String(ep.id)}
+            ratio="landscape"
+            className=""
+            onError={() => setImgIdx((i) => i + 1)}
+          />
+        </div>
         <div className="absolute inset-0 flex items-center justify-center bg-canvas/40 opacity-0 transition-opacity group-hover:opacity-100">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-ink text-canvas">
             <Play size={16} fill="currentColor" />
@@ -111,7 +119,7 @@ function EpisodeStripCard({
         )}
       </div>
       <div className="flex flex-col gap-0.5 px-0.5">
-        <span className="truncate text-[13.5px] font-semibold text-ink">
+        <span className={`truncate text-[13.5px] font-semibold text-ink ${spoiler?.title ? SPOILER_TEXT_CLASS : ""}`}>
           {ep.name || `Episode ${ep.episodeNumber}`}
         </span>
         <span className="text-[11.5px] text-ink-subtle">

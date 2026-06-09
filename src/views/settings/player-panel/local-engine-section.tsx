@@ -6,6 +6,7 @@ import {
   torrentEngineStatus as engineStatus,
   type EngineStatus,
 } from "@/lib/torrent/local-engine";
+import { settingsAnchor } from "../shared";
 
 type SelfTestResult = Awaited<ReturnType<typeof engineSelfTest>>;
 
@@ -76,7 +77,7 @@ export function LocalEngineSection() {
   const pill = PILL[engineState(status)];
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-edge-soft bg-canvas/40 p-4">
+    <div id={settingsAnchor("Local engine")} className="scroll-mt-28 flex flex-col gap-4 rounded-2xl border border-edge-soft bg-canvas/40 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-[14px] font-medium text-ink">Local engine</span>

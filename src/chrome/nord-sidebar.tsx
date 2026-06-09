@@ -1,12 +1,14 @@
 import { Lock } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { AddonsIcon } from "@/components/icons/addons-icon";
+import { DownloadsNavIcon } from "@/chrome/downloads-nav-icon";
 import { AnimeIcon } from "@/components/icons/anime-icon";
 import { CalendarIcon } from "@/components/icons/calendar-icon";
 import { DiscoverIcon } from "@/components/icons/discover-icon";
 import { HomeIcon } from "@/components/icons/home-icon";
 import { LibraryIcon } from "@/components/icons/library-icon";
 import { LiveTvIcon } from "@/components/icons/live-tv-icon";
+import { PlaylistVodIcon } from "@/components/icons/playlist-vod-icon";
 import { MoviesIcon } from "@/components/icons/movies-icon";
 import { SettingsIcon } from "@/components/icons/settings-icon";
 import { TvIcon } from "@/components/icons/tv-icon";
@@ -36,11 +38,13 @@ const PRIMARY: NavDef[] = [
   { render: (a) => <TvIcon active={a} />, label: "Shows", view: "shows", parentalKey: "shows" },
   { render: (a) => <AnimeIcon active={a} />, label: "Anime", view: "anime", hideKey: "anime", parentalKey: "anime" },
   { render: (a) => <LiveTvIcon active={a} />, label: "Live TV", view: "live", hideKey: "liveTv", parentalKey: "liveTv" },
+  { render: (a) => <PlaylistVodIcon active={a} />, label: "Playlists", view: "vod" },
 ];
 
 const COLLECTIONS: NavDef[] = [
   { render: (a) => <CalendarIcon active={a} />, label: "Calendar", view: "calendar", parentalKey: "calendar" },
   { render: (a) => <LibraryIcon active={a} />, label: "My Library", view: "library", parentalKey: "library" },
+  { render: (a) => <DownloadsNavIcon active={a} />, label: "Downloads", view: "downloads" },
   { render: (a) => <AddonsIcon active={a} />, label: "Addons", view: "addons", parentalKey: "addons" },
   { render: (a) => <SettingsIcon active={a} />, label: "Settings", view: "settings", pinGated: true },
 ];
@@ -52,6 +56,7 @@ export function NordSidebar() {
   const [pinFor, setPinFor] = useState<View | null>(null);
 
   const isVisible = (item: NavDef) => {
+    if (item.view === "vod" && !settings.showPlaylistsTab) return false;
     if (item.hideKey && settings.hideContent[item.hideKey]) return false;
     if (locked && item.parentalKey && hiddenTabs[item.parentalKey]) return false;
     return true;

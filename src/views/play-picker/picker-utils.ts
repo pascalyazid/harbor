@@ -44,6 +44,45 @@ export function contributorLabel(s: ScoredStream): string {
   return `${contribs[0].name} + ${contribs.length - 1} more`;
 }
 
+export function addonInstanceKey(s: { addonUrl?: string; addonId: string }): string {
+  return s.addonUrl ?? s.addonId;
+}
+
+export function addonConfigHint(url?: string): string {
+  if (!url) return "";
+  if (/torbox=/i.test(url)) return "TorBox";
+  if (/realdebrid=/i.test(url)) return "RealDebrid";
+  if (/alldebrid=/i.test(url)) return "AllDebrid";
+  if (/premiumize=/i.test(url)) return "Premiumize";
+  if (/debridlink=/i.test(url)) return "DebridLink";
+  if (/easydebrid=/i.test(url)) return "EasyDebrid";
+  if (/offcloud=/i.test(url)) return "Offcloud";
+  return "";
+}
+
+export function buildAddonOptions(
+  streams: ScoredStream[],
+): Array<{ id: string; name: string; count: number }> {
+  const seen = new Map<string, { name: string; url?: string; count: number }>();
+  for (const s of streams) {
+    const key = addonInstanceKey(s);
+    const existing = seen.get(key);
+    if (existing) existing.count += 1;
+    else seen.set(key, { name: s.addonName ?? s.addonId, url: s.addonUrl, count: 1 });
+  }
+  const opts = [...seen.entries()].map(([id, v]) => ({ id, name: v.name, url: v.url, count: v.count }));
+  const nameCounts = new Map<string, number>();
+  for (const o of opts) nameCounts.set(o.name, (nameCounts.get(o.name) ?? 0) + 1);
+  for (const o of opts) {
+    if ((nameCounts.get(o.name) ?? 0) > 1) {
+      const hint = addonConfigHint(o.url) || "P2P";
+      o.name = `${o.name} · ${hint}`;
+    }
+  }
+  opts.sort((a, b) => a.name.localeCompare(b.name));
+  return opts.map(({ id, name, count }) => ({ id, name, count }));
+}
+
 export function streamMatchesLangs(s: ScoredStream, prefs: string[]): boolean {
   if (s.audioLanguages.length === 0) return true;
   if (s.audioLanguages.includes("Multi")) return true;
@@ -250,6 +289,8 @@ export function tierChipBadges(s: ScoredStream): BadgeKind[] {
 }
 
 export function displayTitle(s: ScoredStream, showName: string, episode?: PlayEpisode): string {
+  const raw = s.name?.trim();
+  if (raw) return raw;
   if (!episode) {
     const filename = s.behaviorHints?.filename ?? s.behaviorHints?.fileName ?? "";
     const firstLine = (s.title ?? "").split("\n").map((l) => l.trim()).find((l) => l.length > 0);
@@ -287,6 +328,13 @@ export function formatSize(bytes: number): string {
 export function hasInstantMarker(s: ScoredStream): boolean {
   const haystack = `${s.name ?? ""} ${s.title ?? ""} ${s.description ?? ""}`.toLowerCase();
   return /\binstant\b/.test(haystack) || haystack.includes("⚡");
+}
+
+const UNCACHED_MARKER_RX = /\b(?:rd|ad|pm|dl|tb|oc)\s*download\b|\buncached\b|[⬇⏳⌛⏬🔽📥☁]/i;
+
+export function hasUncachedMarker(s: ScoredStream): boolean {
+  const haystack = `${s.name ?? ""} ${s.title ?? ""} ${s.description ?? ""}`;
+  return UNCACHED_MARKER_RX.test(haystack);
 }
 
 const DEBRID_FAIL_CODES = new Set([

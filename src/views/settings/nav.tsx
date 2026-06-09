@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSettings } from "@/lib/settings";
-import type { SectionId } from "./shared";
+import { settingsAnchor, type SectionId } from "./shared";
 
 type IconProps = { size?: number; strokeWidth?: number };
 
@@ -180,6 +180,15 @@ function IconAnilist(p: IconProps) {
   );
 }
 
+function IconSimkl(p: IconProps) {
+  return (
+    <IconBase {...p}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
+      <path d="M15 9c-2.4-1.3-4.8-.4-4.8 1.5 0 2.4 4.6 1.8 4.6 4 0 1.8-2.6 2.4-5 1" strokeLinecap="round" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
 const LANG_ABBR: Record<string, string> = {
   English: "EN",
   Spanish: "ES",
@@ -243,6 +252,12 @@ const NAV_GROUPS: Array<{ heading: string | null; items: NavItem[] }> = [
         label: "AniList",
         Icon: IconAnilist,
         keywords: ["anime", "lists", "watching", "mal", "kitsu"],
+      },
+      {
+        id: "simkl",
+        label: "Simkl",
+        Icon: IconSimkl,
+        keywords: ["scrobble", "sync", "watched", "history", "watchlist", "anime"],
       },
     ],
   },
@@ -346,16 +361,73 @@ const NAV_GROUPS: Array<{ heading: string | null; items: NavItem[] }> = [
   },
 ];
 
+type SettingsOption = { label: string; section: SectionId; anchorTitle?: string; keywords?: string[] };
+
+const SETTINGS_OPTIONS: SettingsOption[] = [
+  { label: "Picture-in-Picture subtitles", section: "player", anchorTitle: "Subtitle style", keywords: ["pip", "picture in picture", "subtitles in pip", "subs"] },
+  { label: "Subtitle size", section: "player", anchorTitle: "Subtitle style", keywords: ["sub", "subtitle", "caption", "font size"] },
+  { label: "Subtitle opacity", section: "player", anchorTitle: "Subtitle style", keywords: ["sub", "subtitle", "transparency"] },
+  { label: "Subtitle background opacity", section: "player", anchorTitle: "Subtitle style", keywords: ["sub", "subtitle", "box", "background"] },
+  { label: "Subtitle outline thickness", section: "player", anchorTitle: "Subtitle style", keywords: ["sub", "subtitle", "border"] },
+  { label: "Subtitle distance from bottom", section: "player", anchorTitle: "Subtitle style", keywords: ["sub", "subtitle", "position", "margin"] },
+  { label: "Player engine (mpv / HTML5)", section: "player", anchorTitle: "Player engine", keywords: ["mpv", "html5", "engine", "playback"] },
+  { label: "HDR-to-SDR tonemapping", section: "player", anchorTitle: "Player engine", keywords: ["hdr", "sdr", "tonemap", "color"] },
+  { label: "Anime4K upscaling", section: "player", anchorTitle: "Player engine", keywords: ["anime4k", "upscale", "shader", "quality"] },
+  { label: "Seek bar style", section: "player", anchorTitle: "Seek bar", keywords: ["seek", "scrubber", "progress", "bar", "timeline"] },
+  { label: "Play button behavior", section: "player", anchorTitle: "Play button behavior", keywords: ["autoplay", "instant", "manual", "picker", "play mode"] },
+  { label: "Stream format chips", section: "player", anchorTitle: "Stream format chips", keywords: ["chips", "badges", "4k", "hdr", "codec", "quality badge"] },
+  { label: "Poster size", section: "player", anchorTitle: "Poster size", keywords: ["poster", "card", "size", "scale", "4k", "bigger"] },
+  { label: "Trailer quality", section: "player", anchorTitle: "Trailer quality", keywords: ["trailer", "quality", "youtube", "ytdl"] },
+  { label: "Next episode prompt timing", section: "player", anchorTitle: "Next episode prompt", keywords: ["next episode", "up next", "autoplay", "pill", "credits"] },
+  { label: "Downloads folder", section: "player", anchorTitle: "Downloads", keywords: ["download", "folder", "save", "directory"] },
+  { label: "Built-in torrent engine", section: "player", anchorTitle: "Local engine", keywords: ["torrent", "p2p", "local engine", "librqbit", "stream"] },
+  { label: "Custom CSS / JS code", section: "player", anchorTitle: "Custom code", keywords: ["custom", "css", "js", "javascript", "inject", "power user"] },
+  { label: "Home layout", section: "library", anchorTitle: "Home layout", keywords: ["home", "rails", "rows", "layout"] },
+  { label: "Show every addon row", section: "library", anchorTitle: "Home layout", keywords: ["addon", "rows", "duplicate", "rails"] },
+  { label: "Show Playlists tab", section: "library", anchorTitle: "Home layout", keywords: ["playlist", "m3u", "xtream", "vod", "nav"] },
+  { label: "Blur spoilers", section: "library", anchorTitle: "Spoilers", keywords: ["spoiler", "blur", "hide", "thumbnails", "titles", "episodes"] },
+  { label: "Continue Watching screenshots", section: "library", anchorTitle: "Continue Watching screenshots", keywords: ["continue watching", "screenshot", "snapshot", "frame"] },
+  { label: "Hide anime / Live TV / sports / adult", section: "library", anchorTitle: "Content filters", keywords: ["hide", "content filter", "anime", "live tv", "sports", "adult", "age"] },
+  { label: "Region", section: "library", anchorTitle: "Region", keywords: ["region", "country", "availability"] },
+  { label: "TMDB / OMDb / RPDB / Fanart / TVDB keys", section: "library", anchorTitle: "Metadata providers", keywords: ["tmdb", "omdb", "rpdb", "fanart", "tvdb", "api key", "metadata", "ratings"] },
+  { label: "IMDb / Rotten Tomatoes / MAL scores on cards", section: "library", anchorTitle: "Metadata providers", keywords: ["imdb", "rotten tomatoes", "rt", "mal", "score", "rating", "badge"] },
+  { label: "Subtitle languages", section: "language", anchorTitle: "Subtitle languages", keywords: ["subtitle", "language", "sub", "default"] },
+  { label: "Audio languages", section: "language", anchorTitle: "Audio languages", keywords: ["audio", "language", "dub", "track"] },
+  { label: "Preferred languages", section: "language", anchorTitle: "Preferred languages", keywords: ["language", "preferred", "region"] },
+  { label: "Stream safety filter", section: "streaming", anchorTitle: "Stream safety filter", keywords: ["safety", "filter", "scam", "fake", "shady", "mismatched"] },
+  { label: "Picker layout (Condensed / Stremio)", section: "streaming", anchorTitle: "Picker layout", keywords: ["picker", "layout", "condensed", "stremio", "list", "drawer"] },
+  { label: "Debrid keys (RealDebrid / TorBox / AllDebrid / Premiumize)", section: "streaming", anchorTitle: "Debrid services", keywords: ["debrid", "realdebrid", "torbox", "alldebrid", "premiumize", "rd", "tb"] },
+  { label: "Usenet (Easynews+)", section: "streaming", anchorTitle: "Usenet", keywords: ["usenet", "easynews", "nzb"] },
+  { label: "Streaming catalogs", section: "streaming", anchorTitle: "Streaming catalogs", keywords: ["netflix", "disney", "hulu", "streaming", "providers", "catalogs"] },
+  { label: "Watch Together relay", section: "relay", anchorTitle: "Harbor Relay", keywords: ["watch together", "party", "relay", "p2p", "host", "cloudflare"] },
+  { label: "Theme preset", section: "theme", anchorTitle: "Theme", keywords: ["theme", "color", "preset", "dark", "appearance"] },
+  { label: "Background wallpaper", section: "theme", anchorTitle: "Background image", keywords: ["background", "wallpaper", "image", "dim"] },
+  { label: "Typography and custom fonts", section: "theme", anchorTitle: "Typography", keywords: ["font", "typography", "display", "body", "typeface", "custom font"] },
+  { label: "Keyboard shortcuts", section: "hotkeys", keywords: ["hotkey", "keybind", "shortcut", "keyboard"] },
+  { label: "Player layout / chrome", section: "playerLayout", keywords: ["layout", "chrome", "controls", "player ui", "trickplay", "thumbnail"] },
+  { label: "Webhooks (Discord / Telegram)", section: "webhooks", keywords: ["webhook", "discord", "telegram", "notify", "alerts"] },
+  { label: "Updates", section: "advanced", anchorTitle: "Updates", keywords: ["update", "version", "upgrade", "auto update"] },
+  { label: "Backup & restore", section: "advanced", anchorTitle: "Backup & restore", keywords: ["backup", "restore", "export", "import", "settings file"] },
+  { label: "System tray", section: "advanced", anchorTitle: "System tray", keywords: ["tray", "close to tray", "minimize", "background"] },
+  { label: "Discord Rich Presence", section: "advanced", anchorTitle: "Discord Rich Presence", keywords: ["discord", "rich presence", "status", "now watching"] },
+  { label: "Privacy & tracker blocking", section: "advanced", anchorTitle: "Privacy", keywords: ["privacy", "telemetry", "tracker", "ads", "analytics", "block"] },
+];
+
 export function SettingsNav({
   active,
   onChange,
 }: {
   active: SectionId;
-  onChange: (id: SectionId) => void;
+  onChange: (id: SectionId, anchor?: string) => void;
 }) {
   const { settings } = useSettings();
   const [query, setQuery] = useState("");
   const trimmed = query.trim().toLowerCase();
+  const sectionLabel = useMemo(() => {
+    const m = new Map<SectionId, string>();
+    for (const group of NAV_GROUPS) for (const item of group.items) m.set(item.id, item.label);
+    return m;
+  }, []);
   const matches = useMemo<NavItem[] | null>(() => {
     if (!trimmed) return null;
     const out: NavItem[] = [];
@@ -370,6 +442,14 @@ export function SettingsNav({
       }
     }
     return out;
+  }, [trimmed]);
+  const optionMatches = useMemo<SettingsOption[] | null>(() => {
+    if (!trimmed) return null;
+    return SETTINGS_OPTIONS.filter(
+      (o) =>
+        o.label.toLowerCase().includes(trimmed) ||
+        (o.keywords ?? []).some((k) => k.toLowerCase().includes(trimmed)),
+    );
   }, [trimmed]);
 
   const libraryKeys = [
@@ -408,6 +488,7 @@ export function SettingsNav({
     library: libraryKeys > 0 ? `${libraryKeys}/5` : null,
     trakt: null,
     anilist: null,
+    simkl: null,
     relay: relayLive,
     streaming: debridChip,
     language: langChip,
@@ -487,9 +568,15 @@ export function SettingsNav({
             placeholder="Search settings"
             className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-subtle"
             onKeyDown={(e) => {
-              if (e.key === "Enter" && matches && matches.length > 0) {
-                onChange(matches[0].id);
-                setQuery("");
+              if (e.key === "Enter") {
+                if (matches && matches.length > 0) {
+                  onChange(matches[0].id);
+                  setQuery("");
+                } else if (optionMatches && optionMatches.length > 0) {
+                  const o = optionMatches[0];
+                  onChange(o.section, o.anchorTitle ? settingsAnchor(o.anchorTitle) : undefined);
+                  setQuery("");
+                }
               } else if (e.key === "Escape") {
                 setQuery("");
               }
@@ -512,10 +599,49 @@ export function SettingsNav({
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 pb-8">
         {matches && (
           <div className="flex flex-col gap-1">
-            <div className="px-3.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/80">
-              {matches.length === 0 ? "No matches" : `${matches.length} result${matches.length === 1 ? "" : "s"}`}
-            </div>
-            {matches.map(renderItem)}
+            {matches.length === 0 && (!optionMatches || optionMatches.length === 0) && (
+              <div className="px-3.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/80">
+                No matches
+              </div>
+            )}
+            {matches.length > 0 && (
+              <>
+                <div className="px-3.5 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/80">
+                  {matches.length} tab{matches.length === 1 ? "" : "s"}
+                </div>
+                {matches.map(renderItem)}
+              </>
+            )}
+            {optionMatches && optionMatches.length > 0 && (
+              <>
+                <div className="px-3.5 pb-1.5 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-subtle/80">
+                  {optionMatches.length} option{optionMatches.length === 1 ? "" : "s"}
+                </div>
+                {optionMatches.map((o) => (
+                  <button
+                    key={`${o.section}-${o.label}`}
+                    onClick={() => {
+                      onChange(o.section, o.anchorTitle ? settingsAnchor(o.anchorTitle) : undefined);
+                      setQuery("");
+                    }}
+                    className="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-ink-muted transition-colors hover:bg-elevated/70 hover:text-ink"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-canvas/60 text-ink-subtle group-hover:text-ink-muted">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
+                      </svg>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13.5px] font-medium text-ink">{o.label}</span>
+                      <span className="block truncate text-[11px] text-ink-subtle">
+                        {sectionLabel.get(o.section) ?? o.section}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
         {!matches && NAV_GROUPS.map((group, gi) => (

@@ -71,7 +71,11 @@ export function EmptyState({
         ? "Nothing on Trakt this month"
         : source === "anticipated"
           ? "Nothing anticipated this month"
-          : "Nothing this month";
+          : source === "simkl"
+            ? "Nothing on Simkl this month"
+            : source === "simkl-anticipated"
+              ? "No Simkl premieres this month"
+              : "Nothing this month";
   const body =
     source === "library"
       ? "Your saved shows have no episodes scheduled for this month. Switch to All upcoming to browse the full release calendar."
@@ -79,7 +83,11 @@ export function EmptyState({
         ? "Trakt has no upcoming releases for your watchlist this month. Past months and dates more than six months out aren't covered by Trakt's calendar feed."
         : source === "anticipated"
           ? "None of Trakt's most-anticipated upcoming releases land in this month. Try a different month."
-          : watchlistOnly
+          : source === "simkl"
+            ? "Your Simkl plan-to-watch list has no episodes airing this month. Switch to All upcoming to browse everything."
+            : source === "simkl-anticipated"
+              ? "Simkl lists no new shows or anime premiering this month. Try a different month."
+              : watchlistOnly
             ? "Nothing from your library lands this month. Toggle Watchlist off to see all releases."
             : filter === "all"
               ? "TMDB has no notable releases for this month and region."

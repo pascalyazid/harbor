@@ -29,6 +29,7 @@ export type LibraryItem = {
   temp: boolean;
   _ctime: string;
   _mtime: string;
+  external?: "simkl";
 };
 
 export function episodeFromVideoId(

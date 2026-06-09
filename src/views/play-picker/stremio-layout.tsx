@@ -5,6 +5,7 @@ import type { Addon } from "@/lib/addons";
 import type { ScoredStream } from "@/lib/streams/types";
 import { StremioRow } from "./stremio-row";
 import { QualityFilterBar, qualityTier, qualityTiersOf } from "./quality-filter";
+import { addonInstanceKey, buildAddonOptions } from "./picker-utils";
 
 export function StremioLayout({
   streams,
@@ -27,33 +28,20 @@ export function StremioLayout({
   const addonLogoMap = useMemo(() => {
     const m = new Map<string, string | null>();
     for (const a of addons ?? []) {
-      if (a.manifest?.id) m.set(a.manifest.id, resolveAddonLogo(a.manifest.logo, a.transportUrl));
+      if (a.transportUrl) m.set(a.transportUrl, resolveAddonLogo(a.manifest.logo, a.transportUrl));
     }
     return m;
   }, [addons]);
-  const addonOptions = useMemo(() => {
-    const seen = new Map<string, { name: string; count: number }>();
-    for (const s of streams) {
-      const existing = seen.get(s.addonId);
-      if (existing) {
-        existing.count += 1;
-      } else {
-        seen.set(s.addonId, { name: s.addonName ?? s.addonId, count: 1 });
-      }
-    }
-    const opts = [...seen.entries()].map(([id, v]) => ({ id, name: v.name, count: v.count }));
-    opts.sort((a, b) => a.name.localeCompare(b.name));
-    return opts;
-  }, [streams]);
+  const addonOptions = useMemo(() => buildAddonOptions(streams), [streams]);
   const addonRank = useMemo(() => {
     const m = new Map<string, number>();
     (addons ?? []).forEach((a, i) => {
-      if (a.manifest?.id) m.set(a.manifest.id, i);
+      if (a.transportUrl) m.set(a.transportUrl, i);
     });
     return m;
   }, [addons]);
   const addonFiltered = useMemo(
-    () => (filter === "all" ? streams : streams.filter((s) => s.addonId === filter)),
+    () => (filter === "all" ? streams : streams.filter((s) => addonInstanceKey(s) === filter)),
     [streams, filter],
   );
   const qualityOptions = useMemo(() => qualityTiersOf(addonFiltered), [addonFiltered]);
@@ -76,8 +64,8 @@ export function StremioLayout({
       const ad = isDownload(a) ? 1 : 0;
       const bd = isDownload(b) ? 1 : 0;
       if (ad !== bd) return ad - bd;
-      const ar = addonRank.get(a.addonId) ?? 9999;
-      const br = addonRank.get(b.addonId) ?? 9999;
+      const ar = addonRank.get(a.addonUrl ?? "") ?? 9999;
+      const br = addonRank.get(b.addonUrl ?? "") ?? 9999;
       if (ar !== br) return ar - br;
       const ai = isInstantText(a) ? 1 : 0;
       const bi = isInstantText(b) ? 1 : 0;

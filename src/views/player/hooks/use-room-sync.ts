@@ -82,7 +82,6 @@ export function useRoomSync(params: {
 
   useEffect(() => {
     syncCatchUpRef.current = false;
-    expectedRoomPlayingRef.current = null;
   }, [src.url, src.meta.id]);
 
   const publishedRef = useRef<{ status: string; positionSec: number; at: number }>({
@@ -96,7 +95,6 @@ export function useRoomSync(params: {
   durationRef.current = snap.durationSec;
   const rateRef = useRef(snap.rate);
   rateRef.current = snap.rate;
-  const expectedRoomPlayingRef = useRef<boolean | null>(null);
   const initialSyncDoneRef = useRef(false);
 
   useEffect(() => {
@@ -207,7 +205,6 @@ export function useRoomSync(params: {
       const drift = Math.abs(cast.getPosition() - target);
       const playStateChanged = state.playing !== playing;
       if (!playStateChanged && drift <= SYNC_DRIFT_TOLERANCE_S) return;
-      expectedRoomPlayingRef.current = state.playing;
       suppressOutgoingFor(SYNC_SUPPRESS_MS);
       if (drift > SYNC_DRIFT_TOLERANCE_S) void cast.seek(target);
       if (state.playing && !playing) void cast.play();
@@ -346,12 +343,11 @@ export function useRoomSync(params: {
     const target = state.playing
       ? state.positionSeconds + ageS + SYNC_PLAY_LOOKAHEAD_S
       : state.positionSeconds;
-    expectedRoomPlayingRef.current = state.playing;
     suppressOutgoingFor(SYNC_SUPPRESS_MS);
     if (state.speed != null) b.setRate(state.speed);
     b.seek(target);
     b.play().catch(() => {});
   }, [inRoom, isHost, hasStarted, roomSnapshot.syncState, src.meta.id, suppressOutgoingFor]);
 
-  return { inRoomRef, isHostRef, expectedRoomPlayingRef };
+  return { inRoomRef, isHostRef };
 }
