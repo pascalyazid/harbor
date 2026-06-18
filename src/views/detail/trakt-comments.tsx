@@ -134,6 +134,7 @@ function CommentCard({
   const [imgError, setImgError] = useState(false);
   const [liking, setLiking] = useState(false);
   const [likes, setLikes] = useState(comment.likes);
+  const [revealed, setRevealed] = useState(!comment.spoiler);
 
   const avatar = (() => {
     if (comment.user.avatar) return comment.user.avatar;
@@ -191,9 +192,23 @@ function CommentCard({
             </span>
           )}
         </div>
-        <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink" dir="auto">
-          {comment.comment}
-        </p>
+        {!revealed ? (
+          <div className="mt-1.5">
+            <button
+              onClick={() => setRevealed(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-500/10 px-3 py-1.5 text-[12px] font-medium text-yellow-400 transition-colors hover:bg-yellow-500/20"
+            >
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current">
+                <path d="M8 3C4.5 3 1.7 5.3 0 8c1.7 2.7 4.5 5 8 5s6.3-2.3 8-5c-1.7-2.7-4.5-5-8-5zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-4a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+              </svg>
+              Spoiler — Click to reveal
+            </button>
+          </div>
+        ) : (
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ink" dir="auto">
+            {comment.comment}
+          </p>
+        )}
         <div className="mt-2 flex items-center gap-3 text-[12px] text-ink-muted">
           <button
             onClick={handleLike}
@@ -237,6 +252,7 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [text, setText] = useState("");
+  const [spoiler, setSpoiler] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [ratinging, setRatinging] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
@@ -348,7 +364,8 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
     setPostError(null);
     setPosting(true);
     try {
-      const created = await postComment(target, text.trim());
+      const created = await postComment(target, text.trim(), spoiler);
+      setSpoiler(false);
       setComments((prev) => [created, ...prev]);
       setText("");
       if (commentsCacheKey) {
@@ -376,7 +393,7 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
       }
     }
     setPosting(false);
-  }, [target, text, posting, commentsCacheKey]);
+  }, [target, text, posting, commentsCacheKey, spoiler]);
 
   const handleRate = useCallback(async (rating: number) => {
     if (!target || ratinging) return;
@@ -523,6 +540,18 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
                 )}
               </button>
             </div>
+          </div>
+          <div className="mt-2 flex items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ink-muted transition-colors hover:text-ink">
+              <input
+                type="checkbox"
+                checked={spoiler}
+                onChange={(e) => setSpoiler(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-edge bg-elevated accent-ink"
+              />
+              {t("Contains spoiler")}
+            </label>
+            <span className="text-[11px] text-ink-muted/40">{t("Comments may take a moment to appear on Trakt")}</span>
           </div>
           {postError && (
             <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-red-500/10 px-3 py-2 text-[12px] text-red-400">

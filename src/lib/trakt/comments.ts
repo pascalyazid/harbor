@@ -114,10 +114,11 @@ function subjectBody(target: TraktTarget) {
 export async function postComment(
   target: TraktTarget,
   comment: string,
+  spoiler: boolean = false,
 ): Promise<TraktComment> {
   const body = {
     comment,
-    spoiler: false,
+    spoiler,
     review: false,
     share: false,
     ...subjectBody(target),
