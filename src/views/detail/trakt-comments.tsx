@@ -138,6 +138,7 @@ function CommentCard({
   username: string | null;
   onDelete: (id: number) => void;
 }) {
+  const t = useT();
   const [imgError, setImgError] = useState(false);
   const [liking, setLiking] = useState(false);
   const [likes, setLikes] = useState(comment.likes);
@@ -211,7 +212,7 @@ function CommentCard({
               <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-current">
                 <path d="M8 3C4.5 3 1.7 5.3 0 8c1.7 2.7 4.5 5 8 5s6.3-2.3 8-5c-1.7-2.7-4.5-5-8-5zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-4a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
               </svg>
-              Spoiler — Click to reveal
+              {t("Spoiler — Click to reveal")}
             </button>
           </div>
         ) : (
@@ -712,6 +713,7 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
 }
 
 function SpoilerLabel({ comment }: { comment: { comment: string } }) {
+  const t = useT();
   const [show, setShow] = useState(false);
   if (show) {
     return <p className="mt-0.5 whitespace-pre-wrap break-words text-[12px] leading-relaxed text-ink" dir="auto">{comment.comment}</p>;
@@ -721,7 +723,7 @@ function SpoilerLabel({ comment }: { comment: { comment: string } }) {
       onClick={() => setShow(true)}
       className="mt-0.5 inline-flex items-center gap-1 rounded bg-yellow-500/10 px-2 py-0.5 text-[10px] font-medium text-yellow-400 transition-colors hover:bg-yellow-500/20"
     >
-      Spoiler — Click
+{t("Spoiler — Click")}
     </button>
   );
 }

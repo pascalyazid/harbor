@@ -129,6 +129,15 @@ const misc: Record<string, string> = {
   "Reveal image": "إظهار الصورة",
 
   "My": "تعليقاتي",
+
+  "Likes": "الإعجابات",
+  "Newest": "الأحدث",
+  "Oldest": "الأقدم",
+  "Contains spoiler": "يحتوي على حرق",
+  "Write a comment...": "اكتب تعليقًا...",
+  "Comments may take a moment to appear on Trakt": "قد تستغرق التعليقات لحظة لتظهر على Trakt",
+  "Spoiler — Click to reveal": "حرق — انقر للإظهار",
+  "Spoiler — Click": "حرق — انقر",
   "Run test": "تشغيل الاختبار",
   "Use a different URL": "استخدام رابط مختلف",
   "Deploy a relay": "نشر المرحل (Deploy a relay)",

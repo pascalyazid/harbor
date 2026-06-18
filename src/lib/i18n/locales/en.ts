@@ -115,6 +115,15 @@ const en: Record<string, string> = {
   "Blur episode images on detail page": "Blur episode images on detail page",
   "Blurs the hero image and stills on the episode detail page until you click reveal.":
     "Blurs the hero image and stills on the episode detail page until you click reveal.",
+
+  "Likes": "Likes",
+  "Newest": "Newest",
+  "Oldest": "Oldest",
+  "Contains spoiler": "Contains spoiler",
+  "Write a comment...": "Write a comment...",
+  "Comments may take a moment to appear on Trakt": "Comments may take a moment to appear on Trakt",
+  "Spoiler — Click to reveal": "Spoiler — Click to reveal",
+  "Spoiler — Click": "Spoiler — Click",
 };
 
 export default en;
