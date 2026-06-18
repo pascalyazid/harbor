@@ -551,13 +551,18 @@ export function TraktComments({ resolution }: { resolution: IdResolution | null 
 
       <div className="relative">
         {settings.blurComments && blurred && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-md bg-canvas/60">
+          <div className="absolute inset-0 z-10 flex flex-col items-center gap-3 pt-12 backdrop-blur-sm"
+            style={{
+              background: "linear-gradient(to bottom, color-mix(in srgb, var(--color-canvas) 0%, transparent) 0%, color-mix(in srgb, var(--color-canvas) 75%, transparent) 40%, color-mix(in srgb, var(--color-canvas) 92%, transparent) 100%)",
+            }}
+          >
             <button
               onClick={() => setBlurred(false)}
-              className="rounded-xl bg-ink px-5 py-2.5 text-[13px] font-semibold text-canvas transition-transform hover:scale-[1.03] active:scale-[0.97]"
+              className="rounded-xl bg-ink px-5 py-2.5 text-[13px] font-semibold text-canvas shadow-lg transition-transform hover:scale-[1.03] active:scale-[0.97]"
             >
               {t("Reveal comments")}
             </button>
+            <span className="text-[11px] text-ink-muted/60">{t("Comments are hidden")}</span>
           </div>
         )}
 
