@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 
-# Serve Harbor's Vite/React web UI (no Rust/Tauri toolchain needed for the browser build).
-FROM node:22-bookworm-slim
+# ----------------------------------------------------------------------------
+# Stage 1 — build the Vite/React static bundle (no Rust/Tauri toolchain needed
+# for the browser build).
+# ----------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS build
 
 # The corepack bundled with node can fail to verify the pnpm 11 signature
 # ("Cannot find matching keyid"). Upgrade corepack first, then activate the
@@ -25,7 +28,20 @@ RUN pnpm rebuild esbuild
 # App source.
 COPY . .
 
-EXPOSE 1420
+# Production build -> /app/dist
+RUN pnpm build
 
-# Bind to all interfaces so the port is reachable from the host.
-CMD ["pnpm", "dev", "--host", "0.0.0.0"]
+# ----------------------------------------------------------------------------
+# Stage 2 — serve the static bundle with nginx. Small image, no Node runtime.
+# ----------------------------------------------------------------------------
+FROM nginx:1.27-alpine AS runtime
+
+# SPA routing + gzip + sane cache headers.
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Vite emits hashed assets into dist/assets; copy the whole dist tree.
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
